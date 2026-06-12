@@ -2,7 +2,7 @@
   "id": "token-speaker",
   "title": "Token Speaker",
   "description": "<p>Animates player tokens in real-time based on microphone input. Supports simple bounce mode and advanced viseme lip-sync — without any database writes or network lag.</p>",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "socket": true,
   "authors": [
     {

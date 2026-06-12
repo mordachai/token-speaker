@@ -28,25 +28,21 @@ export class CanvasAnimator {
     const filename  = lastSlash >= 0 ? imgPath.slice(lastSlash + 1) : imgPath;
     const lastDot   = filename.lastIndexOf(".");
     const base      = lastDot >= 0 ? filename.slice(0, lastDot) : filename;
-
-    let files;
-    try {
-      const result = await FilePicker.browse("data", folder || "/");
-      files = result.files ?? [];
-    } catch {
-      return {};
-    }
+    const ext       = lastDot >= 0 ? filename.slice(lastDot) : "";
+    const prefix    = folder ? `${folder}/${base}` : base;
 
     const textures = {};
     for (const viseme of ["oo", "ah", "ee"]) {
-      const re = new RegExp(`^${_escapeRegex(base)}[ \\-_]${viseme}\\.[^.]+$`, "i");
-      const match = files.find(f => {
-        const fname = f.includes("/") ? f.slice(f.lastIndexOf("/") + 1) : f;
-        return re.test(fname);
-      });
-      if (match) {
-        try { textures[viseme] = await loadTexture(match); }
-        catch { textures[viseme] = null; }
+      for (const sep of ["-", "_", " "]) {
+        const path = `${prefix}${sep}${viseme}${ext}`;
+        try {
+          const res = await fetch(path, { method: "HEAD" });
+          if (res.ok) {
+            try { textures[viseme] = await foundry.canvas.loadTexture(path); }
+            catch { textures[viseme] = null; }
+            break;
+          }
+        } catch { /* file not found, try next separator */ }
       }
     }
     return textures;
@@ -207,10 +203,6 @@ function _ensureTokenTextures(token) {
   if (CanvasAnimator._tokenTextures.has(id) || CanvasAnimator._texturePending.has(id)) return;
   const imgPath = token.document.texture.src;
   if (imgPath) CanvasAnimator._loadTokenTextures(id, imgPath);
-}
-
-function _escapeRegex(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function _restoreTexture(tokenId, token, map) {
