@@ -1,0 +1,171 @@
+<form class="ts-heads-config standard-form" autocomplete="off">
+
+  <fieldset>
+    <legend>Portrait</legend>
+    <div class="form-group slim">
+      <label>Size (px)</label>
+      <div class="form-fields">
+        <input type="range" name="headWidth" min="40" max="240" step="4" value="{{headWidth}}">
+        <span class="range-value">{{headWidth}}</span>
+      </div>
+      <p class="hint">Portrait width in pixels. Height scales with the image when Keep Aspect Ratio is enabled.</p>
+    </div>
+    <div class="form-group slim">
+      <label>Keep Aspect Ratio</label>
+      <div class="form-fields">
+        <input type="checkbox" name="headAspectRatio" {{#if headAspectRatio}}checked{{/if}}>
+      </div>
+      <p class="hint">Preserve the portrait's natural proportions. Disable for square avatars; enable for full-body or tall images.</p>
+    </div>
+    <div class="form-group slim">
+      <label>Show Name</label>
+      <div class="form-fields">
+        <input type="checkbox" name="showHeadName" {{#if showHeadName}}checked{{/if}}>
+      </div>
+      <p class="hint">Display the character name below each portrait.</p>
+    </div>
+    <div class="form-group slim">
+      <label>Speaking Indicator</label>
+      <div class="form-fields">
+        <select name="headIndicatorStyle">
+          {{#each indicatorOptions}}
+          <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+          {{/each}}
+        </select>
+      </div>
+      <p class="hint">Ring: coloured border glow. Bubble: animated speech bubble above the portrait. Independent from the canvas token indicator.</p>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Appearance</legend>
+    <div class="form-group slim">
+      <label>Portrait Mask</label>
+      <div class="form-fields">
+        <input type="text" name="headMask" value="{{headMask}}" placeholder="Path to mask image (optional)...">
+        <button type="button" data-action="browseMask" title="Browse for mask image">
+          <i class="fas fa-file-image"></i>
+        </button>
+        <button type="button" data-action="clearMask" title="Clear mask">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+      <p class="hint">Optional mask image applied to all talking head portraits. White = visible, transparent/black = hidden. One file for all heads.</p>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Animation Mode</legend>
+    <div class="form-group slim">
+      <label>Mode</label>
+      <div class="form-fields">
+        <select name="headMode">
+          {{#each modeOptions}}
+          <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+          {{/each}}
+        </select>
+      </div>
+      <p class="hint">None: no animation. Simple: bounce/wobble. Advanced: viseme lip-sync. Hybrid: visemes when found, bounce otherwise. Controls all heads for every player.</p>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Bounce</legend>
+    <div class="form-group slim">
+      <label>Max Y offset (%)</label>
+      <div class="form-fields">
+        <input type="range" name="bounceMax" min="0" max="50" step="1" value="{{bounceMax}}">
+        <span class="range-value">{{bounceMax}}</span>
+      </div>
+      <p class="hint">Upward amplitude as % of portrait height while speaking. 0 disables bounce.</p>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Wobble</legend>
+    <div class="form-group slim">
+      <label>Max rotation (°)</label>
+      <div class="form-fields">
+        <input type="range" name="angleMax" min="0" max="30" step="1" value="{{angleMax}}">
+        <span class="range-value">{{angleMax}}</span>
+      </div>
+      <p class="hint">Maximum rotation at full intensity. 0 disables wobble.</p>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Scale</legend>
+    <div class="form-group slim">
+      <label>Axis</label>
+      <div class="form-fields">
+        <select name="scaleAxis">
+          {{#each scaleAxisOptions}}
+          <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+          {{/each}}
+        </select>
+      </div>
+    </div>
+    <div class="form-group slim">
+      <label>Low limit</label>
+      <div class="form-fields">
+        <input type="range" name="scaleLow" min="0.5" max="1.0" step="0.05" value="{{scaleLow}}">
+        <span class="range-value">{{scaleLow}}</span>
+      </div>
+      <p class="hint">Minimum scale the animation vibrates down to. 1.0 = no squish.</p>
+    </div>
+    <div class="form-group slim">
+      <label>High limit</label>
+      <div class="form-fields">
+        <input type="range" name="scaleHigh" min="1.0" max="2.0" step="0.05" value="{{scaleHigh}}">
+        <span class="range-value">{{scaleHigh}}</span>
+      </div>
+      <p class="hint">Maximum scale the animation vibrates up to.</p>
+    </div>
+    <div class="form-group slim">
+      <label>Damping</label>
+      <div class="form-fields">
+        <input type="range" name="scaleDamping" min="0" max="0.95" step="0.05" value="{{scaleDamping}}">
+        <span class="range-value">{{scaleDamping}}</span>
+      </div>
+      <p class="hint">0 = raw waveform (max tremors). Higher = smoother, fewer tremors.</p>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Intensity</legend>
+    <div class="form-group slim">
+      <label>Intensity</label>
+      <div class="form-fields">
+        <input type="range" name="intensity" min="0.1" max="3.0" step="0.1" value="{{intensity}}">
+        <span class="range-value">{{intensity}}</span>
+      </div>
+      <p class="hint">Gain on mic volume for head animation. Higher = easier to reach limits.</p>
+    </div>
+  </fieldset>
+
+  {{#if players}}
+  <fieldset>
+    <legend>Mirror (per player)</legend>
+    {{#each players}}
+    <div class="form-group slim">
+      <label>{{name}}</label>
+      <div class="form-fields">
+        <input type="hidden" name="mirrorUserId" value="{{userId}}">
+        <label class="ts-mirror-label">
+          <input type="checkbox" name="mirror-{{userId}}" {{#if mirrored}}checked{{/if}}>
+          Flip portrait horizontally
+        </label>
+      </div>
+    </div>
+    {{/each}}
+    <p class="hint">Mirror flips a portrait so characters face inward. Applies to all viewers.</p>
+  </fieldset>
+  {{/if}}
+
+  <footer class="sheet-footer flexrow">
+    <button type="button" data-action="save">
+      <i class="fas fa-save"></i> Save
+    </button>
+  </footer>
+
+</form>

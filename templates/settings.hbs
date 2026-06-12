@@ -3,8 +3,9 @@
   <div class="form-group">
     <label>Mode</label>
     <select name="mode">
-      <option value="simple" {{#if modeSimple}}selected{{/if}}>Simple (Bounce)</option>
+      <option value="simple"   {{#if modeSimple}}selected{{/if}}>Simple (Bounce)</option>
       <option value="advanced" {{#if modeAdvanced}}selected{{/if}}>Advanced (Visemes)</option>
+      <option value="hybrid"   {{#if modeHybrid}}selected{{/if}}>Hybrid (Auto)</option>
     </select>
   </div>
 
@@ -27,7 +28,7 @@
   </div>
 
   <div class="ts-sprites">
-    <h3>Viseme Sprites <span class="ts-hint">(Advanced Mode only)</span></h3>
+    <h3>Viseme Sprites <span class="ts-hint">(Advanced &amp; Hybrid modes)</span></h3>
 
     <div class="form-group">
       <label>Closed Mouth</label>
