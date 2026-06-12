@@ -3,7 +3,6 @@
 [![GitHub Release](https://img.shields.io/github/v/release/mordachai/token-speaker?style=flat-square)](https://github.com/mordachai/token-speaker/releases/latest)
 [![Foundry VTT](https://img.shields.io/badge/Foundry%20VTT-v14%2B-orange?style=flat-square)](https://foundryvtt.com)
 
-
 Animate player tokens in real-time as they speak. Token Speaker listens to your microphone and translates your voice into dynamic canvas animations — no database writes, no network lag.
 
 ## Features
@@ -30,6 +29,24 @@ Advanced Mode maps your voice to four mouth shapes. Prepare one token image per 
 | **EE** | E, I, EE | *see*, *feel*, *green*, *city* |
 
 The module cycles through these four shapes in real-time as it hears you speak — no manual input needed.
+
+### File Naming
+
+Place the viseme images in the same folder as your base token. The module discovers them automatically by scanning for sibling files whose name matches `<base><sep><viseme>.<ext>`, where:
+
+- `<sep>` is `-`, `_`, or a space (tried in that order)
+- `<viseme>` is `OO`, `oo`, or `Oo` — and likewise for `AH` and `EE` (uppercase tried first)
+
+Example for `Katrina_token.webp`:
+
+```text
+Katrina_token.webp        ← base (closed mouth)
+Katrina_token-OO.webp
+Katrina_token-AH.webp
+Katrina_token-EE.webp
+```
+
+GMs and assistants use a directory listing to find files, so any capitalisation or separator works with no errors. Players use HTTP probing as a fallback, so naming files with a dash and uppercase (`-OO`, `-AH`, `-EE`) matches on the first probe and avoids console noise.
 
 ## Installation
 

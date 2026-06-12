@@ -29,21 +29,46 @@ export class CanvasAnimator {
     const lastDot   = filename.lastIndexOf(".");
     const base      = lastDot >= 0 ? filename.slice(0, lastDot) : filename;
     const ext       = lastDot >= 0 ? filename.slice(lastDot) : "";
-    const prefix    = folder ? `${folder}/${base}` : base;
 
+    // Preferred path: directory listing — finds files regardless of case/separator,
+    // no failed HTTP probes. Requires FILES_BROWSE permission (GM/assistant).
+    try {
+      const result = await foundry.applications.apps.FilePicker.implementation.browse("data", folder || "/");
+      const files = result.files ?? [];
+      const textures = {};
+      for (const viseme of ["oo", "ah", "ee"]) {
+        const re = new RegExp(`^${_escapeRegex(base)}[ \\-_]${viseme}\\.[^.]+$`, "i");
+        const match = files.find(f => re.test(f.includes("/") ? f.slice(f.lastIndexOf("/") + 1) : f));
+        if (match) {
+          try { textures[viseme] = await foundry.canvas.loadTexture(match); }
+          catch { textures[viseme] = null; }
+        }
+      }
+      return textures;
+    } catch { /* no FILES_BROWSE permission — fall through */ }
+
+    // Fallback for players: probe with HEAD requests.
+    // Causes 404 console noise for misses, but players cannot browse directories.
+    const prefix = folder ? `${folder}/${base}` : base;
     const textures = {};
     for (const viseme of ["oo", "ah", "ee"]) {
+      const variants = [viseme.toUpperCase(), viseme, viseme[0].toUpperCase() + viseme.slice(1)];
+      let found = false;
       for (const sep of ["-", "_", " "]) {
-        const path = `${prefix}${sep}${viseme}${ext}`;
-        const url  = path.startsWith("/") || path.includes("://") ? path : `/${path}`;
-        try {
-          const res = await fetch(url, { method: "HEAD" });
-          if (res.ok) {
-            try { textures[viseme] = await foundry.canvas.loadTexture(path); }
-            catch { textures[viseme] = null; }
-            break;
-          }
-        } catch { /* file not found, try next separator */ }
+        if (found) break;
+        for (const v of variants) {
+          const path = `${prefix}${sep}${v}${ext}`;
+          const url  = path.startsWith("/") || path.includes("://") ? path : `/${path}`;
+          try {
+            const res = await fetch(url, { method: "HEAD" });
+            if (res.ok) {
+              try { textures[viseme] = await foundry.canvas.loadTexture(path); }
+              catch { textures[viseme] = null; }
+              found = true;
+              break;
+            }
+          } catch { /* try next */ }
+        }
       }
     }
     return textures;
@@ -204,6 +229,10 @@ function _ensureTokenTextures(token) {
   if (CanvasAnimator._tokenTextures.has(id) || CanvasAnimator._texturePending.has(id)) return;
   const imgPath = token.document.texture.src;
   if (imgPath) CanvasAnimator._loadTokenTextures(id, imgPath);
+}
+
+function _escapeRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function _restoreTexture(tokenId, token, map) {
