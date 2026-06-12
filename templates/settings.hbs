@@ -1,0 +1,64 @@
+<div class="ts-settings">
+
+  <div class="form-group">
+    <label>Mode</label>
+    <select name="mode">
+      <option value="simple" {{#if modeSimple}}selected{{/if}}>Simple (Bounce)</option>
+      <option value="advanced" {{#if modeAdvanced}}selected{{/if}}>Advanced (Visemes)</option>
+    </select>
+  </div>
+
+  <div class="form-group ts-slider-group">
+    <label>Mic Sensitivity</label>
+    <input type="range" name="sensitivity" min="0" max="100" value="{{sensitivity}}" class="ts-range">
+    <span class="ts-range-value">{{sensitivity}}</span>
+  </div>
+
+  <div class="form-group ts-slider-group">
+    <label>Animation Intensity</label>
+    <input type="range" name="intensity" min="0" max="100" value="{{intensity}}" class="ts-range">
+    <span class="ts-range-value">{{intensity}}</span>
+  </div>
+
+  <div class="form-group">
+    <label>Speaker Widget</label>
+    <input type="checkbox" name="speakerWidget" {{#if speakerWidget}}checked{{/if}}>
+    <p class="notes">Adds a token picker to the scene controls toolbar (for GMs and users without an assigned character).</p>
+  </div>
+
+  <div class="ts-sprites">
+    <h3>Viseme Sprites <span class="ts-hint">(Advanced Mode only)</span></h3>
+
+    <div class="form-group">
+      <label>Closed Mouth</label>
+      <input type="text" name="spriteClosed" value="{{spriteClosed}}" placeholder="e.g. modules/my-module/img/closed.webp">
+    </div>
+
+    <div class="form-group">
+      <label>OO Shape</label>
+      <input type="text" name="spriteOO" value="{{spriteOO}}" placeholder="e.g. modules/my-module/img/oo.webp">
+    </div>
+
+    <div class="form-group">
+      <label>AH Shape</label>
+      <input type="text" name="spriteAH" value="{{spriteAH}}" placeholder="e.g. modules/my-module/img/ah.webp">
+    </div>
+
+    <div class="form-group">
+      <label>EE Shape</label>
+      <input type="text" name="spriteEE" value="{{spriteEE}}" placeholder="e.g. modules/my-module/img/ee.webp">
+    </div>
+  </div>
+
+  <footer class="sheet-footer flexrow">
+    <button type="submit"><i class="fas fa-save"></i> Save Settings</button>
+  </footer>
+
+</div>
+
+<script>
+  document.querySelectorAll(".ts-range").forEach(function(range) {
+    var display = range.nextElementSibling;
+    range.addEventListener("input", function() { display.textContent = this.value; });
+  });
+</script>

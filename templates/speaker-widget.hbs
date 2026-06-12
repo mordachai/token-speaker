@@ -1,0 +1,28 @@
+<div class="ts-widget">
+  {{#if tokens}}
+  <div class="ts-token-grid">
+    {{#each tokens}}
+    <button class="ts-token-cell{{#if pinned}} ts-pinned{{/if}}"
+            type="button"
+            data-action="selectToken"
+            data-token-id="{{id}}"
+            title="{{name}}">
+      <div class="ts-token-img">
+        <img src="{{img}}" alt="{{name}}">
+      </div>
+      <span class="ts-token-name">{{name}}</span>
+    </button>
+    {{/each}}
+  </div>
+  {{else}}
+  <p class="ts-empty">No NPC tokens in scene.</p>
+  {{/if}}
+
+  {{#if hasPinned}}
+  <footer class="ts-widget-footer">
+    <button type="button" data-action="clearPin">
+      <i class="fas fa-times"></i> Clear Speaker
+    </button>
+  </footer>
+  {{/if}}
+</div>

@@ -1,0 +1,184 @@
+#token-speaker-settings .ts-settings {
+  padding: 0.5rem 0.25rem;
+}
+
+#token-speaker-settings .form-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+#token-speaker-settings .form-group label {
+  flex: 0 0 150px;
+  font-weight: bold;
+  font-size: 0.9em;
+}
+
+#token-speaker-settings .form-group select,
+#token-speaker-settings .form-group input[type="text"] {
+  flex: 1;
+  font-size: 0.85em;
+}
+
+#token-speaker-settings .ts-slider-group input[type="range"] {
+  flex: 1;
+}
+
+#token-speaker-settings .ts-range-value {
+  flex: 0 0 3ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85em;
+}
+
+#token-speaker-settings .ts-sprites {
+  border-top: 1px solid var(--color-border-light-tertiary, #ccc);
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+}
+
+#token-speaker-settings .ts-sprites h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-light-6, #888);
+}
+
+#token-speaker-settings .ts-hint {
+  font-weight: normal;
+  font-size: 0.9em;
+  opacity: 0.7;
+}
+
+#token-speaker-settings .sheet-footer {
+  margin-top: 1rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border-light-tertiary, #ccc);
+  justify-content: flex-end;
+}
+
+#token-speaker-settings .form-group .notes {
+  flex: 1;
+  font-size: 0.8em;
+  font-style: italic;
+  color: var(--color-text-light-6, #888);
+  margin: 0;
+}
+
+/* ── Simple Animation Config ────────────────────────────────── */
+
+#token-speaker-simple-config .ts-simple-config fieldset {
+  border: 1px solid var(--color-border-light-tertiary, #ccc);
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem 0.25rem;
+}
+
+#token-speaker-simple-config .ts-simple-config fieldset legend {
+  font-weight: bold;
+  font-size: 0.8em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-light-6, #888);
+  padding: 0 0.25rem;
+}
+
+#token-speaker-simple-config .ts-simple-config .range-value {
+  flex: 0 0 4ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85em;
+}
+
+#token-speaker-simple-config .ts-simple-config .sheet-footer {
+  justify-content: flex-end;
+  margin-top: 0.25rem;
+}
+
+/* ── Speaker Widget ─────────────────────────────────────────── */
+
+#token-speaker-widget .ts-token-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 10px;
+  max-height: 340px;   /* ~4 rows before scroll (4×50px + names + gaps + padding) */
+  overflow-y: auto;
+  overflow-x: hidden;  /* no horizontal scroll ever */
+}
+
+#token-speaker-widget .ts-token-cell {
+  width: 100%;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
+  color: color-mix(in srgb, var(--color-text-primary) 80%, transparent);
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+}
+
+#token-speaker-widget .ts-token-img {
+  width: 50px;
+  height: 50px;
+  flex-shrink: 0;
+  border-radius: 5px;
+  overflow: hidden;
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+  transition: outline-color 0.12s, box-shadow 0.12s;
+  pointer-events: none;
+}
+
+#token-speaker-widget .ts-token-cell:hover .ts-token-img {
+  outline-color: var(--color-border-highlight, #ff6400);
+}
+
+#token-speaker-widget .ts-token-cell.ts-pinned .ts-token-img {
+  outline-color: var(--color-border-highlight, #ff6400);
+  box-shadow: 0 0 8px rgba(255, 100, 0, 0.5);
+}
+
+#token-speaker-widget .ts-token-cell img {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+
+#token-speaker-widget .ts-token-name {
+  width: 54px;
+  margin-top: 4px;
+  font-size: 0.7em;
+  line-height: 1.3;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+#token-speaker-widget .ts-empty {
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: var(--color-text-light-6, #888);
+  font-style: italic;
+  font-size: 0.85em;
+}
+
+#token-speaker-widget .ts-widget-footer {
+  padding: 6px 10px;
+  border-top: 1px solid var(--color-border-light-tertiary, #ccc);
+  display: flex;
+  justify-content: flex-end;
+}

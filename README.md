@@ -1,17 +1,54 @@
-**Token Speaker** brings a new level of immersion to Foundry VTT by animating player tokens in real-time as they speak. By listening to your microphone, the module translates your voice into dynamic canvas animations—without slowing down your game.
+# Token Speaker
 
-### Features:
+[![GitHub Release](https://img.shields.io/github/v/release/mordachai/token-speaker?style=flat-square)](https://github.com/mordachai/token-speaker/releases/latest)
+[![Foundry VTT](https://img.shields.io/badge/Foundry%20VTT-v14%2B-orange?style=flat-square)](https://foundryvtt.com)
+[![License](https://img.shields.io/github/license/mordachai/token-speaker?style=flat-square)](LICENSE)
+[![GitHub issues](https://img.shields.io/github/issues/mordachai/token-speaker?style=flat-square)](https://github.com/mordachai/token-speaker/issues)
 
-#### Two Modes of Animation:
+Animate player tokens in real-time as they speak. Token Speaker listens to your microphone and translates your voice into dynamic canvas animations — no database writes, no network lag.
 
-**Simple Mode (Bouncy):** Tokens organically bounce, wobble, or scale up based on how loud the player is speaking. Perfect for standard portraits and top-down tokens.
+## Features
 
-**Advanced Mode (Lip-Syncing):** Analyzes the pitch and tone of your voice to approximate mouth shapes (like "OO", "AH", "EE", and closed). It swaps your token's image in real-time to match the sounds you are making!
+**Simple Mode** — Tokens bounce, wobble, or scale based on microphone volume. Works with any portrait or top-down token.
 
-- Smart Performance Fallback: If a player's computer is older or struggles to run the advanced lip-syncing, the module detects this and automatically switches them to "Simple Mode." This ensures the game stays fast and smooth for everyone at the table.
+**Advanced Mode (Lip-Sync)** — Analyzes pitch and tone to approximate mouth shapes (OO, AH, EE, closed) and swaps your token image in real-time to match the sounds you make.
 
-- No Lag & No Database Bloat: All animations happen purely on the visual layer of the screen. We don't save these rapid movements to the Foundry database, meaning your game runs smoothly no matter how much people talk.
+**Zero Database Impact** — Animations happen entirely on the visual layer. Nothing is written to the Foundry database during play.
 
-- Lightweight Network Syncing: Players see each other's tokens animate seamlessly. The module packages these visual updates efficiently so it won't clog up your internet connection.
+**Efficient Sync** — Visual updates are packaged efficiently over sockets so other players see animations without bandwidth spikes.
 
-- Player-Level Customization: A clean, modern settings menu lets each player adjust their own microphone sensitivity, choose how bouncy their token gets, and easily pick the images they want to use for their mouth shapes.
+**Per-Player Settings** — Each player controls their own mic sensitivity, bounce intensity, and lip-sync images from a clean settings panel.
+
+## Visemes
+
+Advanced Mode maps your voice to four mouth shapes. Prepare one token image per shape and assign them in the settings panel:
+
+| Shape | Sounds like | Example words |
+| ----- | ----------- | ------------- |
+| **Closed** | M, B, P | *hm*, *bump*, *lamp*, *maybe* |
+| **OO** | OO, W, U | *you*, *moon*, *blue*, *would* |
+| **AH** | A, O (open) | *father*, *hot*, *calm*, *large* |
+| **EE** | E, I, EE | *see*, *feel*, *green*, *city* |
+
+The module cycles through these four shapes in real-time as it hears you speak — no manual input needed.
+
+## Installation
+
+**Via Foundry VTT** (recommended): paste the manifest URL in *Add-on Modules → Install Module*:
+
+```text
+https://github.com/mordachai/token-speaker/releases/latest/download/module.json
+```
+
+**Manual**: download `module.zip` from the [latest release](https://github.com/mordachai/token-speaker/releases/latest) and extract it into your `Data/modules/` folder.
+
+## Usage
+
+1. Enable **Token Speaker** in your world's Module Management.
+2. Open **Module Settings → Token Speaker** to configure your microphone and animation preferences.
+3. For lip-sync, provide token images for each mouth shape (OO, AH, EE, closed) in the settings panel.
+4. Start talking — your token animates automatically.
+
+## License
+
+[MIT](LICENSE)
