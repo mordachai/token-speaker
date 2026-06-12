@@ -3,8 +3,8 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 export class SimpleAnimationConfig extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
     id: "token-speaker-simple-config",
-    window: { title: "Simple Animation — Limits", resizable: false },
-    position: { width: 420, height: "auto" },
+    window: { title: "Token Animation Config (GM)", resizable: true },
+    position: { width: 420, height: 520 },
     actions: {
       save: SimpleAnimationConfig._onSave,
     },
@@ -16,8 +16,24 @@ export class SimpleAnimationConfig extends HandlebarsApplicationMixin(Applicatio
 
   async _prepareContext(_options) {
     const get = k => game.settings.get("token-speaker", k);
+    const mode      = get("mode");
     const scaleAxis = get("scaleAxis");
+    const indicator = get("indicatorStyle");
     return {
+      indicatorOptions: [
+        { value: "none",   label: "None",         selected: indicator === "none"   },
+        { value: "ring",   label: "Ring Only",     selected: indicator === "ring"   },
+        { value: "bubble", label: "Bubble Only",   selected: indicator === "bubble" },
+        { value: "both",   label: "Ring + Bubble", selected: indicator === "both"   },
+      ],
+      modeOptions: [
+        { value: "none",     label: "None (Disabled)",            selected: mode === "none"     },
+        { value: "simple",   label: "Simple (Bounce)",            selected: mode === "simple"   },
+        { value: "advanced", label: "Advanced (Visemes)",         selected: mode === "advanced" },
+        { value: "hybrid",   label: "Hybrid (Visemes or Bounce)", selected: mode === "hybrid"   },
+        { value: "both",     label: "Both (Visemes + Bounce)",    selected: mode === "both"     },
+      ],
+      intensity:    get("intensity"),
       bounceMax:    get("bounceMax"),
       angleMax:     get("angleMax"),
       scaleAxisOptions: [
@@ -48,6 +64,9 @@ export class SimpleAnimationConfig extends HandlebarsApplicationMixin(Applicatio
     const form = target.closest("form");
     const fd = Object.fromEntries(new FormData(form));
     const set = (k, v) => game.settings.set("token-speaker", k, v);
+    await set("indicatorStyle", fd.indicatorStyle ?? "ring");
+    await set("mode",         fd.mode);
+    await set("intensity",    Number(fd.intensity));
     await set("bounceMax",    Number(fd.bounceMax));
     await set("angleMax",     Number(fd.angleMax));
     await set("scaleAxis",    fd.scaleAxis);

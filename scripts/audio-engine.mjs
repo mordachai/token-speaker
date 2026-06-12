@@ -55,7 +55,8 @@ export class AudioEngine {
     const buffer = AudioEngine._buffer;
     AudioEngine._analyser.getByteFrequencyData(buffer);
 
-    const mode = game.settings.get("token-speaker", "advancedMode") ? "advanced" : "simple";
+    const mode     = game.settings.get("token-speaker", "mode");
+    const headMode = game.settings.get("token-speaker", "headMode");
     const sensitivity = game.settings.get("token-speaker", "sensitivity") / 100;
 
     // RMS volume, normalized 0-1
@@ -69,7 +70,12 @@ export class AudioEngine {
 
     const state = { mode, volume };
 
-    if (mode === "advanced") {
+    // Classify visemes whenever EITHER the canvas token OR the talking head needs them.
+    // Previously this was gated on canvas mode only, which broke head visemes when
+    // the token was set to "none" or "simple".
+    const tokenWantsVisemes = mode     === "advanced" || mode     === "hybrid" || mode     === "both";
+    const headWantsVisemes  = headMode === "advanced" || headMode === "hybrid" || headMode === "both";
+    if (tokenWantsVisemes || headWantsVisemes) {
       const classified = volume < 0.01 ? "closed" : AudioEngine._classifyViseme(buffer);
       if (AudioEngine._visemeHold > 0) {
         AudioEngine._visemeHold--;

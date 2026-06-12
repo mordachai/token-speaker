@@ -1,3 +1,5 @@
+import { TalkingHeads } from "./talking-heads.mjs";
+
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
 export class SpeakerWidget extends HandlebarsApplicationMixin(ApplicationV2) {
@@ -29,6 +31,7 @@ export class SpeakerWidget extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static clearPin() {
     SpeakerWidget.pinnedTokenId = null;
+    TalkingHeads.setGMPin(null);
     SpeakerWidget._instance?.render({ force: true });
   }
 
@@ -55,6 +58,7 @@ export class SpeakerWidget extends HandlebarsApplicationMixin(ApplicationV2) {
     const id = target.dataset.tokenId;
     // clicking the already-pinned token toggles it off
     SpeakerWidget.pinnedTokenId = SpeakerWidget.pinnedTokenId === id ? null : id;
+    TalkingHeads.setGMPin(SpeakerWidget.pinnedTokenId);
     SpeakerWidget._instance?.render({ force: true });
   }
 
