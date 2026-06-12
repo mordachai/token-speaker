@@ -2,8 +2,7 @@
 
 [![GitHub Release](https://img.shields.io/github/v/release/mordachai/token-speaker?style=flat-square)](https://github.com/mordachai/token-speaker/releases/latest)
 [![Foundry VTT](https://img.shields.io/badge/Foundry%20VTT-v14%2B-orange?style=flat-square)](https://foundryvtt.com)
-[![License](https://img.shields.io/github/license/mordachai/token-speaker?style=flat-square)](LICENSE)
-[![GitHub issues](https://img.shields.io/github/issues/mordachai/token-speaker?style=flat-square)](https://github.com/mordachai/token-speaker/issues)
+
 
 Animate player tokens in real-time as they speak. Token Speaker listens to your microphone and translates your voice into dynamic canvas animations — no database writes, no network lag.
 
