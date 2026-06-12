@@ -35,8 +35,9 @@ export class CanvasAnimator {
     for (const viseme of ["oo", "ah", "ee"]) {
       for (const sep of ["-", "_", " "]) {
         const path = `${prefix}${sep}${viseme}${ext}`;
+        const url  = path.startsWith("/") || path.includes("://") ? path : `/${path}`;
         try {
-          const res = await fetch(path, { method: "HEAD" });
+          const res = await fetch(url, { method: "HEAD" });
           if (res.ok) {
             try { textures[viseme] = await foundry.canvas.loadTexture(path); }
             catch { textures[viseme] = null; }
