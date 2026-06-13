@@ -7,19 +7,25 @@ Animate player tokens in real-time as they speak. Token Speaker listens to your 
 
 ## Features
 
-- **Simple Mode** — Tokens bounce, wobble, and scale based on microphone volume. Works with any token.
-- **Advanced Mode (Lip-Sync)** — Analyzes pitch and tone to approximate mouth shapes (OO, AH, EE, closed) and swaps your token image in real-time.
-- **Hybrid Mode (Auto)** — Uses lip-sync when viseme images are found for a token, falls back to bounce/wobble otherwise. Best for sessions with a mix of voiced PCs and generic NPCs.
-- **Speaking Indicators** — A glowing ring, a speech bubble, or both appear on tokens while they speak. The character name briefly flashes above the token on first speech. All configurable by the GM.
-- **Talking Heads** — Optional floating portrait panels, one per player, anchored anywhere on screen. The GM drags them into position; layout is saved per scene.
-- **Flipbook Spritesheet** — Instead of four separate cropped images, drop a single 2×2 sprite sheet next to your token. The module slices it automatically.
-- **Luminance Mask** — Provide a grayscale mask image to clip tokens to any shape (rounded frames, irregular silhouettes) without needing pre-cropped images.
-- **Zero Database Impact** — Animations happen entirely on the visual layer. Nothing is written to the Foundry database during play.
-- **Efficient Sync** — Visual updates are packaged over sockets at 15 Hz so every player sees animations with no bandwidth spikes.
+### ANIMATION MODES:
+
+- **Simple Mode:**  Bounce, Wobble and Stretch animations. You have controls to make it more serious or goofy looking
+- **Advanced Mode (Lip-Sync):**  Analyzes pitch and tone to approximate mouth shapes (OO, AH, EE, closed) and swaps your token image in real-time. You will need some extra images, check below how to do it.
+- **Hybrid Mode (Auto):**  Uses lip-sync when viseme images are found for a token, falls back to bounce/wobble otherwise.
+- **Both:** Activate Simple and Advanced mode at the same time so you will see it with lip-sync and stretchy animations.
 
 ---
 
-## Visemes
+The animations both above are applied in two layers: **Tokens** and/or **Talking Heads**
+
+- **Flipbook Spritesheet** — Instead of four separate cropped images, drop a single 2×2 sprite sheet next to your token. The module slices it automatically.
+- **Luminance Mask** — Provide a grayscale mask image to clip tokens to any shape (rounded frames, irregular silhouettes) without needing pre-cropped images.
+
+---
+
+## The Flipbook Image: Visemes
+
+_**Visemes** are a lipsync animation term, it stands for **"Visual Phonemes"**. Its a simplification of the shape of the lips/mouth when you are vocalizing words._
 
 Advanced and Hybrid modes map your voice to four mouth shapes:
 
@@ -40,7 +46,7 @@ You have two options: a **flipbook sheet** (one file, recommended) or **four ind
 
 ### Option A — Flipbook Spritesheet (recommended)
 
-A single image divided into a 2×2 grid. The module detects it automatically by the `-sheet` suffix.
+> **A single image divided into a 2×2 grid. The module detects it automatically by the `-sheet` suffix.**
 
 ```text
 ┌──────────┬──────────┐
@@ -57,7 +63,7 @@ Katrina_token.webp           ← base token (not used for mouth, see Closed quad
 Katrina_token-sheet.webp     ← 2×2 flipbook sheet   ← add this
 ```
 
-**How to build the sheet in any image editor:**
+### **How to build the sheet in any image editor. No-IA route:**
 
 1. Open (or create) each of your four mouth-state images at the same size, e.g. 256×256 px each.
 2. Create a new canvas at **double the width and double the height** — 512×512 px in this example.
@@ -70,16 +76,30 @@ Katrina_token-sheet.webp     ← 2×2 flipbook sheet   ← add this
 
 > **Tip:** If you only have one master portrait and want to paint the mouth shapes, duplicate the layer four times and edit just the mouth region on each copy, then composite them into the 2×2 grid.
 
-The sheet must have an even width and height (the module cuts it exactly in half each axis). Both dimensions do not need to be equal — a 512×256 sheet (wide rectangles) works fine for landscape portraits.
+---
+
+### **How to build the sheet using an AI software. Two prompts:**
+
+**Prompt 1:**
+
+```Portrait of [subject and style] for a tabletop rpg. Square image. [Neutral/Transparent] background. No token frame```
+
+ChatGPT can do transparency correctly, Gemini, Midjourney, Grok not. So select the correct one at the end.
+
+**Prompt 2:**
+```From this image create 4 visemes for the mouth in a 2 by 2 spritesheet: Closed (top left), AH (top-right), EE (bottom left), OO (bottom right). Keep same position and same POV, animate only mouth and do subtle eye animation. No text.```
+
+Using two prompts initialy it's best because you can first set the style you want and when you're cool with the character you can make the spritesheet.
+
+But after you make the fisrt one a simple "do the same, but now its a Dwarven Shopkeeper" will give you fast and cool results.
+
+Examples below, using free ChataGPT:
+
 
 ---
 
 ### Option B — Four Individual Files
 
-Place four images in the same folder as your base token, following the naming convention `<base><sep><viseme>.<ext>`:
-
-- `<sep>` is `-`, `_`, or a space (tried in that order)
-- `<viseme>` is `OO`, `oo`, or `Oo` — and likewise for `AH` and `EE` (uppercase tried first)
 - The base token image itself acts as the **Closed** mouth frame
 
 Example for `Katrina_token.webp`:
@@ -91,7 +111,7 @@ Katrina_token-AH.webp
 Katrina_token-EE.webp
 ```
 
-> **Note for players:** Name files with a dash and uppercase (`-OO`, `-AH`, `-EE`) to avoid 404 console noise. GMs and assistants use directory listings, so any capitalisation works.
+> **Note:** Name files with a dash and uppercase (`-OO`, `-AH`, `-EE`) to avoid 404 console noise. GMs and assistants use directory listings, so any capitalisation works. IF you use lowercase suffix it will work but it will thrown an error in console.
 
 ---
 
@@ -115,44 +135,35 @@ Katrina_token-mask.webp      ← luminance mask   ← add this
 
 This means you can use any standard greyscale image — no need to work with alpha channels.
 
-**How to create a mask in any image editor:**
-
-1. Open your token portrait (or the sheet).
-2. Create a new layer filled with **black**.
-3. Paint **white** over the area you want to be visible — e.g. an oval for a portrait frame, or an irregular silhouette for a creature.
-4. Optionally feather or blur the edges for a soft fade.
-5. Flatten to a single greyscale layer.
-6. Export as `.webp` or `.png` at **exactly the same pixel dimensions** as the base token (or the individual viseme images, not the full sheet).
-
-> **Example use cases:** Round portrait frames, hex token silhouettes, vignette fade around the edges, any non-rectangular token shape.
+> **Sheet vs individual files:** The size of the mask its for one token, DON'T MAKE A SHEET OF MASKS. The mask is applied on the token after its automatically cropped from the sheet.
 >
-> **Sheet vs individual files:** The mask covers the area shown for each viseme frame. When using a flipbook sheet the mask should match the size of one quadrant (half width × half height of the full sheet), not the full sheet.
+> **Example use cases:** Round portrait frames, hex token silhouettes, vignette fade around the edges, any non-rectangular token shape.
 
 ---
 
 ## Speaking Indicators
 
-The GM controls visual cues for the whole table in **Module Settings → Token Speaker**:
+Chat Bubble and Color Rings
 
-| Setting | Options |
-| ------- | ------- |
-| Speaking Indicator | None / Ring Only / Bubble Only / Ring + Bubble |
-| Name Flash on Speak | On / Off — briefly shows character name when speaking starts |
-| Ring Color | Any hex colour — per-player, defaults to orange `#ff6400` |
+Independent controls for talking heads and tokens: you can make the talking animate while the tolken only flashs and/ or display a small chat bubble icon.
+
+The Ring Color its the same color of the user assigned in User Configuration (bottom left panel on canvas)
 
 ---
 
 ## Talking Heads
 
-Floating portrait panels can be enabled for the whole table in **Module Settings → Token Speaker → Talking Heads**:
+Thats the awesome feature: a speaking floating portrait!
+
+**Module Settings → Token Speaker → Talking Heads**:
 
 - **Off** — disabled (default)
 - **Always Visible** — portraits stay on screen at all times, animate when speaking
 - **Visible While Speaking** — portraits fade in on speech, fade out when silent
 
-The GM can drag each head to any position on screen. Positions are saved per scene and synced to all players.
+The **GM** can drag each head to any position on screen. Positions are saved per scene and synced to all players.
 
-GMs appear in the panel only when they have an NPC pinned in the Speaker Widget.
+**As a GM, any token on screen that you select that doesn't belong to a player will be the one doing the talking. Only one can be selected at a time.**
 
 ---
 
