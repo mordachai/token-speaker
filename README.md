@@ -94,11 +94,22 @@ Using two prompts initialy it's best because you can first set the style you wan
 But after you make the fisrt one a simple "do the same, but now its a Dwarven Shopkeeper" will give you fast and cool results.
 
 Examples below, using free ChataGPT:
-Prompt: Portrait of __Elf Female Wizard with white hair, acrylic painting__, for a tabletop rpg. Square image. __Transparent__ background. No token frame
+
+**Prompt:** Portrait of __Elf Female Wizard with white hair, acrylic painting__, for a tabletop rpg. Square image. __Transparent__ background. No token frame
 
 <img width="512" height="512" alt="image" src="https://github.com/user-attachments/assets/c42e07c4-fbe8-4a0f-936f-f04115be4345" />
 
-Prompt:
+---
+
+**Prompt:** From this image create 4 visemes for the mouth in a 2 by 2 spritesheet: Closed (top left), AH (top-right), EE (bottom left), OO (bottom right). Keep same position and same POV, animate only mouth and do subtle eye animation. No text.
+
+<img width="512" height="512" alt="image" src="https://github.com/user-attachments/assets/7e1f2858-470e-4444-a4c8-f2d3bd46dea0" />
+
+---
+
+**Prompt:** Keeping the same style make a spritesheet for a Dwarf Fighter armed with a hammer
+<img width="512" height="512" alt="image" src="https://github.com/user-attachments/assets/b4c96bcf-4c6b-4b31-8583-d6db94916916" />
+
 
 ---
 
