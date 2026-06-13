@@ -86,7 +86,7 @@
 #token-speaker-simple-config .ts-simple-config .sheet-footer {
   position: sticky;
   bottom: 0;
-  background: var(--color-bg-option, #f0ebe4);
+  /* background: var(--color-bg-option, #f0ebe4); */
   padding-top: 0.5rem;
   margin-top: auto;
   justify-content: flex-end;
@@ -360,7 +360,7 @@
 #token-speaker-heads-config .ts-heads-config .sheet-footer {
   position: sticky;
   bottom: 0;
-  background: var(--color-bg-option, #f0ebe4);
+  /* background: var(--color-bg-option, #f0ebe4); */
   padding-top: 0.5rem;
   margin-top: auto;
   justify-content: flex-end;

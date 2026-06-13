@@ -69,6 +69,7 @@ jobs:
         run: |
           zip -r module.zip \
             module.json \
+            assets/ \        
             scripts/ \
             styles/ \
             templates/ \
