@@ -87,6 +87,7 @@ Katrina_token-sheet.webp     ← 2×2 flipbook sheet   ← add this
 ChatGPT can do transparency correctly, Gemini, Midjourney, Grok not. So select the correct one at the end.
 
 **Prompt 2:**
+
 ```From this image create 4 visemes for the mouth in a 2 by 2 spritesheet: Closed (top left), AH (top-right), EE (bottom left), OO (bottom right). Keep same position and same POV, animate only mouth and do subtle eye animation. No text.```
 
 Using two prompts initialy it's best because you can first set the style you want and when you're cool with the character you can make the spritesheet.
