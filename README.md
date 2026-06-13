@@ -94,7 +94,11 @@ Using two prompts initialy it's best because you can first set the style you wan
 But after you make the fisrt one a simple "do the same, but now its a Dwarven Shopkeeper" will give you fast and cool results.
 
 Examples below, using free ChataGPT:
+Prompt: Portrait of __Elf Female Wizard with white hair, acrylic painting__, for a tabletop rpg. Square image. __Transparent__ background. No token frame
 
+<img width="512" height="512" alt="image" src="https://github.com/user-attachments/assets/c42e07c4-fbe8-4a0f-936f-f04115be4345" />
+
+Prompt:
 
 ---
 
