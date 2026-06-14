@@ -26,8 +26,10 @@ export class TalkingHeads {
       clearTimeout(TalkingHeads._speakingTimers.get(userId));
       TalkingHeads._speakingTimers.delete(userId);
       head.classList.remove("ts-speaking");
+      const frame = head.querySelector(".ts-head-frame");
+      if (frame) frame.style.transform = "";   // don't freeze mid-bounce
       const img = head.querySelector(".ts-head-img");
-      if (img?.dataset.originalSrc) img.src = img.dataset.originalSrc;
+      if (img?.dataset.originalSrc) { img.src = img.dataset.originalSrc; img.dataset.curViseme = "__rest__"; }
     }
     TalkingHeads._targets.clear();
     TalkingHeads._lerped.clear();
@@ -40,7 +42,13 @@ export class TalkingHeads {
     document.body.appendChild(el);
     TalkingHeads._container = el;
     TalkingHeads.rebuild();
-    TalkingHeads._rafId = requestAnimationFrame(TalkingHeads._tick);
+    // rAF starts on demand when a head begins speaking (see _ensureRunning).
+  }
+
+  static _ensureRunning() {
+    if (TalkingHeads._rafId === null) {
+      TalkingHeads._rafId = requestAnimationFrame(TalkingHeads._tick);
+    }
   }
 
   static destroy() {
@@ -224,7 +232,11 @@ export class TalkingHeads {
 
     head.addEventListener("dragstart", e => e.preventDefault());
 
-    TalkingHeads._discoverHeadImages(info.userId, info.img);
+    // Only discover viseme assets when the head mode actually swaps images.
+    const headMode = game.settings.get("token-speaker", "headMode");
+    if (headMode === "advanced" || headMode === "both" || headMode === "hybrid") {
+      TalkingHeads._discoverHeadImages(info.userId, info.img);
+    }
 
     return head;
   }
@@ -232,10 +244,6 @@ export class TalkingHeads {
   // ── Animation tick (rAF) ─────────────────────────────────────────
 
   static _tick() {
-    TalkingHeads._rafId = requestAnimationFrame(TalkingHeads._tick);
-
-    if (!TalkingHeads._targets.size) return;
-
     const get = k => game.settings.get("token-speaker", k);
     // All animation params are world-scoped → same values for every client
     const headMode     = get("headMode");
@@ -264,6 +272,7 @@ export class TalkingHeads {
         TalkingHeads._lerped.set(userId, s);
       }
 
+      const speaking         = target.speaking === true;
       const vol              = target.volume;
       const effectiveVol     = Math.min(vol * intensity, 1.0);
       const hasVisemes       = head.classList.contains("ts-head--has-visemes");
@@ -284,21 +293,17 @@ export class TalkingHeads {
         doBounce = true;
       }
 
-      if (doBounce) {
+      // Bounce/stretch only while speaking; otherwise ease back to the rest pose.
+      if (doBounce && speaking) {
         const rawSample = AudioEngine.getWaveformSample();
-        if (vol > 0.02) {
-          const s0 = Math.max(-1, Math.min(1, rawSample * intensity));
-          const sf = s0 >= 0
-            ? 1.0 + s0 * (scaleHigh - 1.0)
-            : 1.0 + s0 * (1.0 - scaleLow);
-          const tSX = scaleAxis !== "y" ? sf : 1.0;
-          const tSY = scaleAxis !== "x" ? sf : 1.0;
-          s.scaleX += (tSX - s.scaleX) * lerpScale;
-          s.scaleY += (tSY - s.scaleY) * lerpScale;
-        } else {
-          s.scaleX += (1.0 - s.scaleX) * LERP;
-          s.scaleY += (1.0 - s.scaleY) * LERP;
-        }
+        const s0 = Math.max(-1, Math.min(1, rawSample * intensity));
+        const sf = s0 >= 0
+          ? 1.0 + s0 * (scaleHigh - 1.0)
+          : 1.0 + s0 * (1.0 - scaleLow);
+        const tSX = scaleAxis !== "y" ? sf : 1.0;
+        const tSY = scaleAxis !== "x" ? sf : 1.0;
+        s.scaleX += (tSX - s.scaleX) * lerpScale;
+        s.scaleY += (tSY - s.scaleY) * lerpScale;
 
         const tOY  = bounceMax * effectiveVol;
         const tAng = (angleMax > 0 && effectiveVol > 0.02)
@@ -311,6 +316,20 @@ export class TalkingHeads {
         s.scaleY     += (1.0 - s.scaleY)     * LERP;
         s.offsetYPct += (0   - s.offsetYPct) * LERP;
         s.angle      += (0   - s.angle)      * LERP;
+      }
+
+      // Settle: silent and back at rest → snap, set rest frame, drop from active.
+      if (!speaking
+          && Math.abs(s.scaleX - 1)     < 0.001
+          && Math.abs(s.scaleY - 1)     < 0.001
+          && Math.abs(s.offsetYPct)     < 0.05
+          && Math.abs(s.angle)          < 0.05) {
+        s.scaleX = 1; s.scaleY = 1; s.offsetYPct = 0; s.angle = 0;
+        frame.style.transform = "";
+        head.classList.remove("ts-speaking");
+        TalkingHeads._setRestImage(head, userId);
+        TalkingHeads._targets.delete(userId);
+        continue;
       }
 
       frame.style.transform =
@@ -330,6 +349,25 @@ export class TalkingHeads {
         }
       }
     }
+
+    // Keep going only while heads are still animating; otherwise stop the loop.
+    TalkingHeads._rafId = TalkingHeads._targets.size
+      ? requestAnimationFrame(TalkingHeads._tick)
+      : null;
+  }
+
+  // Rest frame: dedicated closed image in viseme modes, else the original portrait.
+  static _setRestImage(head, userId) {
+    const img = head.querySelector(".ts-head-img");
+    if (!img) return;
+    if (img.dataset.curViseme === "__rest__") return;
+    const headMode     = game.settings.get("token-speaker", "headMode");
+    const wantsVisemes = headMode === "advanced" || headMode === "hybrid" || headMode === "both";
+    const hasVisemes   = head.classList.contains("ts-head--has-visemes");
+    const images       = TalkingHeads._headImages.get(userId);
+    const rest = (wantsVisemes && hasVisemes && images?.closed) ? images.closed : img.dataset.originalSrc;
+    if (rest) img.src = rest;
+    img.dataset.curViseme = "__rest__";
   }
 
   // ── Animation state update ────────────────────────────────────────
@@ -339,44 +377,40 @@ export class TalkingHeads {
     const head = TalkingHeads._heads.get(userId);
     if (!head) return;
 
+    const speaking = state.speaking === true;
+
+    // Silent and already settled (not in the active set) → nothing to do, stay idle.
+    if (!speaking && !TalkingHeads._targets.has(userId)) return;
+
     // Store for the rAF tick
     TalkingHeads._targets.set(userId, state);
 
-    const isSpeaking  = state.volume > 0.02;
-    const headMode    = game.settings.get("token-speaker", "headMode");
+    const headMode     = game.settings.get("token-speaker", "headMode");
     const wantsVisemes = headMode === "advanced" || headMode === "hybrid" || headMode === "both";
     const hasVisemes   = head.classList.contains("ts-head--has-visemes");
-    // Only swap viseme images if headMode wants them AND the speaker actually sent viseme data
     const doVisemes    = wantsVisemes && state.viseme !== undefined && hasVisemes;
-
-    if (doVisemes) {
-      const images = TalkingHeads._headImages.get(userId);
-      if (images) {
-        const img = head.querySelector(".ts-head-img");
-        if (img) {
-          const src = images[state.viseme] ?? images.closed ?? img.dataset.originalSrc;
-          if (src) img.src = src;
-        }
-      }
-    }
 
     const headIndicator = game.settings.get("token-speaker", "headIndicatorStyle");
     head.classList.toggle("ts-head--show-ring",   headIndicator === "ring"   || headIndicator === "both");
     head.classList.toggle("ts-head--show-bubble", headIndicator === "bubble" || headIndicator === "both");
 
-    if (isSpeaking) {
+    if (speaking) {
       head.classList.add("ts-speaking");
-      clearTimeout(TalkingHeads._speakingTimers.get(userId));
-      TalkingHeads._speakingTimers.delete(userId);
-    } else if (!TalkingHeads._speakingTimers.has(userId)) {
-      const t = setTimeout(() => {
-        head.classList.remove("ts-speaking");
-        TalkingHeads._speakingTimers.delete(userId);
+      // Viseme swap — guarded by the current frame key so we never reassign the
+      // same image every poll.
+      if (doVisemes) {
         const img = head.querySelector(".ts-head-img");
-        if (img?.dataset.originalSrc) img.src = img.dataset.originalSrc;
-      }, 600);
-      TalkingHeads._speakingTimers.set(userId, t);
+        if (img && img.dataset.curViseme !== state.viseme) {
+          const images = TalkingHeads._headImages.get(userId);
+          const src = images?.[state.viseme] ?? images?.closed ?? img.dataset.originalSrc;
+          if (src) { img.src = src; img.dataset.curViseme = state.viseme; }
+        }
+      }
+    } else {
+      head.classList.remove("ts-speaking");
     }
+
+    TalkingHeads._ensureRunning();
   }
 
   // ── Viseme image discovery (URL-based, no PIXI) ──────────────────
@@ -406,7 +440,7 @@ export class TalkingHeads {
         images = await TalkingHeads._loadFlipbookURLs(sheetFile);
       } else {
         images = {};
-        for (const viseme of ["oo", "ah", "ee"]) {
+        for (const viseme of ["closed", "oo", "ah", "ee"]) {
           const re = new RegExp(`^${_escRegex(base)}[ \\-_]${viseme}\\.[^.]+$`, "i");
           const match = files.find(f => re.test(f.includes("/") ? f.slice(f.lastIndexOf("/") + 1) : f));
           if (match) images[viseme] = match.startsWith("/") || match.includes("://") ? match : `/${match}`;
@@ -427,7 +461,7 @@ export class TalkingHeads {
 
       if (!images) {
         images = {};
-        for (const viseme of ["oo", "ah", "ee"]) {
+        for (const viseme of ["closed", "oo", "ah", "ee"]) {
           const variants = [viseme.toUpperCase(), viseme, viseme[0].toUpperCase() + viseme.slice(1)];
           let found = false;
           for (const sep of ["-", "_", " "]) {
@@ -449,7 +483,8 @@ export class TalkingHeads {
     TalkingHeads._imagesPending.delete(userId);
 
     const head = TalkingHeads._heads.get(userId);
-    const hasVisemes = images && (images.oo || images.ah || images.ee || images.closed);
+    // A lone closed frame is not enough for lip-sync — require a real mouth shape.
+    const hasVisemes = images && (images.oo || images.ah || images.ee);
     if (head && hasVisemes) head.classList.add("ts-head--has-visemes");
   }
 

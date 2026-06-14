@@ -86,7 +86,7 @@ function registerSettings() {
   // ── Hidden — managed by Token Animation Config submenu (GM only) ─
 
   game.settings.register("token-speaker", "indicatorStyle", { scope: "world", config: false, type: String, default: "ring" });
-  game.settings.register("token-speaker", "mode",         { scope: "world",  config: false, type: String, default: "simple" });
+  game.settings.register("token-speaker", "mode",         { scope: "world",  config: false, type: String, default: "simple", onChange: () => CanvasAnimator.onModeChange() });
   game.settings.register("token-speaker", "intensity",    { scope: "world",  config: false, type: Number, default: 1.0  });
   game.settings.register("token-speaker", "bounceMax",    { scope: "world",  config: false, type: Number, default: 8    });
   game.settings.register("token-speaker", "angleMax",     { scope: "world",  config: false, type: Number, default: 5    });
@@ -101,7 +101,7 @@ function registerSettings() {
   game.settings.register("token-speaker", "headWidth",        { scope: "world",  config: false, type: Number, default: 80,      onChange: () => TalkingHeads.rebuild() });
   game.settings.register("token-speaker", "headAspectRatio",  { scope: "world",  config: false, type: Boolean, default: false,  onChange: () => TalkingHeads.rebuild() });
   game.settings.register("token-speaker", "showHeadName",     { scope: "world",  config: false, type: Boolean, default: true,   onChange: () => TalkingHeads.rebuild() });
-  game.settings.register("token-speaker", "headMode",        { scope: "world",  config: false, type: String, default: "simple" });
+  game.settings.register("token-speaker", "headMode",        { scope: "world",  config: false, type: String, default: "simple", onChange: () => TalkingHeads.rebuild() });
   game.settings.register("token-speaker", "headMask",        { scope: "world",  config: false, type: String, default: "",       onChange: () => TalkingHeads.rebuild() });
   game.settings.register("token-speaker", "headBounceMax",    { scope: "world",  config: false, type: Number, default: 10   });
   game.settings.register("token-speaker", "headAngleMax",     { scope: "world",  config: false, type: Number, default: 5    });

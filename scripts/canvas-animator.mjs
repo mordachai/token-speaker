@@ -14,9 +14,53 @@ export class CanvasAnimator {
   static _overlays       = new Map(); // tokenId → { ring, bubble, dotsText }
   static _localTokenId   = null;      // tokenId of the token we are currently driving locally
   static _enabled        = true;
+  static _running        = false;     // ticker is attached only while something animates
+  static _cfg            = null;      // settings snapshot, refreshed on wake / mode change
 
   static init() {
+    // Ticker is attached on demand by _wake() — nothing animates at rest.
+  }
+
+  // Read the world-scoped animation settings once. Re-read on wake and when the
+  // mode changes; values don't change mid-utterance in practice.
+  static _refreshCfg() {
+    const get = k => game.settings.get("token-speaker", k);
+    CanvasAnimator._cfg = {
+      bounceMax:      get("bounceMax"),
+      angleMax:       get("angleMax"),
+      scaleAxis:      get("scaleAxis"),
+      scaleLow:       get("scaleLow"),
+      scaleHigh:      get("scaleHigh"),
+      intensity:      get("intensity"),
+      scaleDamping:   get("scaleDamping"),
+      indicatorStyle: get("indicatorStyle"),
+    };
+  }
+
+  static _wake() {
+    if (CanvasAnimator._running) return;
+    CanvasAnimator._refreshCfg();
     PIXI.Ticker.shared.add(CanvasAnimator._tick, CanvasAnimator);
+    CanvasAnimator._running = true;
+  }
+
+  static _sleep() {
+    if (!CanvasAnimator._running) return;
+    PIXI.Ticker.shared.remove(CanvasAnimator._tick, CanvasAnimator);
+    CanvasAnimator._running = false;
+  }
+
+  // Mode changed (GM toggled token animation mode): restore any swapped meshes to
+  // their original texture and drop viseme caches so the next speech re-discovers.
+  static onModeChange() {
+    for (const [tokenId, orig] of CanvasAnimator._originalTextures) {
+      const token = canvas?.tokens?.placeables?.find(t => t.id === tokenId);
+      if (token?.mesh && orig?.valid) token.mesh.texture = orig;
+    }
+    CanvasAnimator._originalTextures.clear();
+    CanvasAnimator._tokenTextures.clear();
+    CanvasAnimator._texturePending.clear();
+    if (CanvasAnimator._running) CanvasAnimator._refreshCfg();
   }
 
   static _hasVisemes(tokenId) {
@@ -61,9 +105,10 @@ export class CanvasAnimator {
       const sheetFile = files.find(f => sheetRe.test(f.includes("/") ? f.slice(f.lastIndexOf("/") + 1) : f));
       if (sheetFile) return await CanvasAnimator._loadFlipbook(sheetFile);
 
-      // Individual viseme files
+      // Individual viseme files — including a dedicated -closed frame so the base
+      // token art is never repurposed as the mouth.
       const textures = {};
-      for (const viseme of ["oo", "ah", "ee"]) {
+      for (const viseme of ["closed", "oo", "ah", "ee"]) {
         const re = new RegExp(`^${_escapeRegex(base)}[ \\-_]${viseme}\\.[^.]+$`, "i");
         const match = files.find(f => re.test(f.includes("/") ? f.slice(f.lastIndexOf("/") + 1) : f));
         if (match) {
@@ -88,9 +133,9 @@ export class CanvasAnimator {
       } catch { /* try next */ }
     }
 
-    // Individual viseme files via HEAD probes
+    // Individual viseme files via HEAD probes (including dedicated -closed)
     const textures = {};
-    for (const viseme of ["oo", "ah", "ee"]) {
+    for (const viseme of ["closed", "oo", "ah", "ee"]) {
       const variants = [viseme.toUpperCase(), viseme, viseme[0].toUpperCase() + viseme.slice(1)];
       let found = false;
       for (const sep of ["-", "_", " "]) {
@@ -227,6 +272,7 @@ export class CanvasAnimator {
     CanvasAnimator._overlays.forEach(ov => { ov.ring?.destroy(); ov.bubble?.destroy(); });
     CanvasAnimator._overlays.clear();
     CanvasAnimator._localTokenId = null;
+    CanvasAnimator._sleep();
   }
 
   // Returns the token that was targeted so the caller can include its id in the broadcast.
@@ -243,8 +289,17 @@ export class CanvasAnimator {
     }
 
     CanvasAnimator._localTokenId = token.id;
+
+    // Silent and already settled (not animating) → do nothing, stay asleep.
+    if (!state.speaking && !CanvasAnimator._targets.has(token.id)) return token;
+
     CanvasAnimator._targets.set(token.id, state);
-    _ensureTokenTextures(token);
+    if (state.speaking) {
+      const s = CanvasAnimator._lerped.get(token.id);
+      if (s) s.settled = false;
+      _ensureTokenTextures(token);
+    }
+    CanvasAnimator._wake();
     return token;
   }
 
@@ -253,27 +308,33 @@ export class CanvasAnimator {
     if (!canvas.ready) return;
     const token = canvas.tokens.placeables.find(t => t.id === tokenId);
     if (!token) return;
+
+    if (!state.speaking && !CanvasAnimator._targets.has(token.id)) return;
+
     CanvasAnimator._targets.set(token.id, state);
-    _ensureTokenTextures(token);
+    if (state.speaking) {
+      const s = CanvasAnimator._lerped.get(token.id);
+      if (s) s.settled = false;
+      _ensureTokenTextures(token);
+    }
+    CanvasAnimator._wake();
   }
 
   static _tick() {
     if (!canvas.ready) return;
 
     if (!CanvasAnimator._enabled) {
-      if (CanvasAnimator._targets.size || CanvasAnimator._lerped.size) CanvasAnimator.reset();
+      // Restore every animated mesh to its neutral pose before tearing down,
+      // so a token disabled mid-bounce doesn't freeze deformed.
+      for (const id of [...CanvasAnimator._lerped.keys()]) CanvasAnimator.cleanupToken(id);
+      CanvasAnimator.reset();
+      CanvasAnimator._sleep();
       return;
     }
 
-    const get = k => game.settings.get("token-speaker", k);
-    const bounceMax      = get("bounceMax");
-    const angleMax       = get("angleMax");
-    const scaleAxis      = get("scaleAxis");
-    const scaleLow       = get("scaleLow");
-    const scaleHigh      = get("scaleHigh");
-    const intensity      = get("intensity");
-    const scaleDamping   = get("scaleDamping");
-    const indicatorStyle = get("indicatorStyle");
+    if (!CanvasAnimator._cfg) CanvasAnimator._refreshCfg();
+    const { bounceMax, angleMax, scaleAxis, scaleLow, scaleHigh,
+            intensity, scaleDamping, indicatorStyle } = CanvasAnimator._cfg;
     const lerpScale      = 1.0 - scaleDamping;
     const now            = Date.now();
     const delta          = PIXI.Ticker.shared.deltaMS;
@@ -307,6 +368,7 @@ export class CanvasAnimator {
           // Overlay animation state
           ringAlpha: 0, ringScale: 1.0, ringColorUsed: "",
           bubbleAlpha: 0, bubbleHoldMs: 0,
+          settled: false,
         };
         CanvasAnimator._lerped.set(tokenId, s);
       } else if (s.docY !== token.document.y) {
@@ -314,6 +376,7 @@ export class CanvasAnimator {
         s.docY  = token.document.y;
       }
 
+      const speaking = target.speaking === true;
       const vol = target.volume;
       const effectiveVol = Math.min(vol * intensity, 1.0);
 
@@ -330,23 +393,17 @@ export class CanvasAnimator {
       const doBounce  = effectiveMode === "simple" || effectiveMode === "both";
       const doVisemes = effectiveMode === "advanced" || effectiveMode === "both";
 
-      if (!doVisemes) _restoreTexture(tokenId, token, CanvasAnimator._originalTextures);
-
-      if (doBounce) {
+      // Bounce/stretch — only while speaking; otherwise ease back to the rest pose.
+      if (doBounce && speaking) {
         const rawSample = AudioEngine.getWaveformSample();
-        if (vol > 0.02) {
-          const s0 = Math.max(-1, Math.min(1, rawSample * intensity));
-          const sf = s0 >= 0
-            ? 1.0 + s0 * (scaleHigh - 1.0)
-            : 1.0 + s0 * (1.0 - scaleLow);
-          const tSX = scaleAxis !== "y" ? s.baseScaleX * sf : s.baseScaleX;
-          const tSY = scaleAxis !== "x" ? s.baseScaleY * sf : s.baseScaleY;
-          s.scaleX += (tSX - s.scaleX) * lerpScale;
-          s.scaleY += (tSY - s.scaleY) * lerpScale;
-        } else {
-          s.scaleX += (s.baseScaleX - s.scaleX) * LERP;
-          s.scaleY += (s.baseScaleY - s.scaleY) * LERP;
-        }
+        const s0 = Math.max(-1, Math.min(1, rawSample * intensity));
+        const sf = s0 >= 0
+          ? 1.0 + s0 * (scaleHigh - 1.0)
+          : 1.0 + s0 * (1.0 - scaleLow);
+        const tSX = scaleAxis !== "y" ? s.baseScaleX * sf : s.baseScaleX;
+        const tSY = scaleAxis !== "x" ? s.baseScaleY * sf : s.baseScaleY;
+        s.scaleX += (tSX - s.scaleX) * lerpScale;
+        s.scaleY += (tSY - s.scaleY) * lerpScale;
         const tOY  = -bounceMax * effectiveVol;
         const tAng = (angleMax > 0 && effectiveVol > 0.02)
           ? Math.sin(now * 0.01) * effectiveVol * angleMax
@@ -354,14 +411,16 @@ export class CanvasAnimator {
         s.offsetY += (tOY  - s.offsetY) * LERP;
         s.angle   += (tAng - s.angle)   * LERP;
       } else {
-        // Pure advanced: lerp everything back to neutral
         s.scaleX  += (s.baseScaleX - s.scaleX)  * LERP;
         s.scaleY  += (s.baseScaleY - s.scaleY)  * LERP;
         s.offsetY += (0            - s.offsetY) * LERP;
         s.angle   += (0            - s.angle)   * LERP;
       }
 
-      if (doVisemes) {
+      // Viseme swap — only while speaking. The rest frame (closed image) is set
+      // once on settle, below. Guard the assignment so we never re-upload the
+      // same texture every frame (the old "pulsing closed image").
+      if (doVisemes && speaking) {
         const viseme   = target.viseme ?? "closed";
         const textures = CanvasAnimator._tokenTextures.get(tokenId) ?? {};
         const tex      = textures[viseme];
@@ -369,10 +428,10 @@ export class CanvasAnimator {
           if (!CanvasAnimator._originalTextures.has(tokenId)) {
             CanvasAnimator._originalTextures.set(tokenId, token.mesh.texture);
           }
-          token.mesh.texture = tex;
-        } else if (viseme === "closed") {
-          _restoreTexture(tokenId, token, CanvasAnimator._originalTextures);
+          if (token.mesh.texture !== tex) token.mesh.texture = tex;
         }
+      } else if (!doVisemes) {
+        _restoreTexture(tokenId, token, CanvasAnimator._originalTextures);
       }
 
       token.mesh.scale.x    = s.scaleX;
@@ -389,7 +448,7 @@ export class CanvasAnimator {
       }
 
       // ── Speaking Indicators ──────────────────────────────────────
-      const isSpeaking = vol > 0.02;
+      const isSpeaking = speaking;
       const cx = token.w / 2;
       const cy = token.h / 2;
 
@@ -419,6 +478,8 @@ export class CanvasAnimator {
             s.ringScale += (tS - s.ringScale) * 0.15;
             ov.ring.alpha = s.ringAlpha;
             ov.ring.scale.set(s.ringScale);
+          } else {
+            s.ringAlpha = 0; // hidden → don't let it block settle
           }
         }
 
@@ -439,16 +500,58 @@ export class CanvasAnimator {
               s.bubbleAlpha += (0 - s.bubbleAlpha) * 0.1;
             }
             ov.bubble.alpha = s.bubbleAlpha;
+          } else {
+            s.bubbleAlpha = 0; // hidden → don't let it block settle
           }
         }
 
       }
+
+      // ── Settle: once silent and back at rest, snap exact, set the static rest
+      // frame, and drop this token from the active set. Nothing animates at idle.
+      if (!speaking
+          && Math.abs(s.scaleX - s.baseScaleX) < 0.001
+          && Math.abs(s.scaleY - s.baseScaleY) < 0.001
+          && Math.abs(s.offsetY) < 0.05
+          && Math.abs(s.angle)   < 0.05
+          && s.ringAlpha   < 0.01
+          && s.bubbleAlpha < 0.01) {
+        s.scaleX = s.baseScaleX; s.scaleY = s.baseScaleY;
+        s.offsetY = 0; s.angle = 0; s.ringAlpha = 0; s.bubbleAlpha = 0;
+        token.mesh.scale.set(s.baseScaleX, s.baseScaleY);
+        token.mesh.position.y = s.baseY;
+        token.mesh.angle = 0;
+        if (ov?.ring)   ov.ring.alpha   = 0;
+        if (ov?.bubble) ov.bubble.alpha = 0;
+
+        // Rest frame: dedicated closed image in viseme modes, else original art.
+        const closedTex = CanvasAnimator._tokenTextures.get(tokenId)?.closed;
+        if (doVisemes && closedTex?.valid) {
+          if (!CanvasAnimator._originalTextures.has(tokenId)) {
+            CanvasAnimator._originalTextures.set(tokenId, token.mesh.texture);
+          }
+          if (token.mesh.texture !== closedTex) token.mesh.texture = closedTex;
+        } else {
+          _restoreTexture(tokenId, token, CanvasAnimator._originalTextures);
+        }
+
+        s.settled = true;
+        CanvasAnimator._targets.delete(tokenId);
+      }
     }
+
+    // Nothing left to animate → detach the ticker entirely (zero idle cost).
+    if (!CanvasAnimator._targets.size) CanvasAnimator._sleep();
   }
 
 }
 
 function _ensureTokenTextures(token) {
+  // Only discover/load viseme assets when the token mode actually swaps images.
+  // Simple/none never touch the token texture — no file browsing, no 404 probes.
+  const mode = game.settings.get("token-speaker", "mode");
+  if (mode === "simple" || mode === "none") return;
+
   const id = token.id;
   if (CanvasAnimator._tokenTextures.has(id) || CanvasAnimator._texturePending.has(id)) return;
   const imgPath = token.document.texture.src;

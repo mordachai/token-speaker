@@ -114,20 +114,23 @@ Examples below, using free ChataGPT:
 
 ---
 
-### Option B — Four Individual Files
+### Option B — Individual Files
 
-- The base token image itself acts as the **Closed** mouth frame
+- The base token image stays your **token art** and is never used as a mouth shape. Provide a dedicated `-closed` frame for the resting mouth.
 
 Example for `Katrina_token.webp`:
 
 ```text
-Katrina_token.webp        ← base / Closed mouth
+Katrina_token.webp           ← token art (untouched unless animation is on)
+Katrina_token-closed.webp    ← Closed mouth (resting frame)
 Katrina_token-OO.webp
 Katrina_token-AH.webp
 Katrina_token-EE.webp
 ```
 
-> **Note:** Name files with a dash and uppercase (`-OO`, `-AH`, `-EE`) to avoid 404 console noise. GMs and assistants use directory listings, so any capitalisation works. IF you use lowercase suffix it will work but it will thrown an error in console.
+> **Note:** Name files with a dash and uppercase (`-CLOSED`, `-OO`, `-AH`, `-EE`) to avoid 404 console noise. GMs and assistants use directory listings, so any capitalisation works. IF you use lowercase suffix it will work but it will thrown an error in console.
+>
+> If no `-closed` file is found, the token falls back to its original art as the resting frame.
 
 ---
 

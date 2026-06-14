@@ -10,6 +10,14 @@ export class AudioEngine {
   static _VISEME_HOLD_FRAMES = 3;
   static _CLOSED_BRIDGE_FRAMES = 2;
 
+  // Speaking detection with hysteresis — prevents ambient mic noise from
+  // flickering animation on/off. Enter high, exit low, hold a few frames.
+  static _speaking = false;
+  static _silenceFrames = 0;
+  static _ENTER_VOL = 0.05;
+  static _EXIT_VOL  = 0.02;
+  static _SILENCE_HOLD_FRAMES = 10;   // ~0.33 s at 30 Hz
+
   static async init(onState) {
     AudioEngine._onState = onState;
 
@@ -68,7 +76,20 @@ export class AudioEngine {
     const noiseGate = (1 - sensitivity) * 0.15;
     const volume = Math.min(1, Math.max(0, (rms - noiseGate) / (1 - noiseGate)));
 
-    const state = { mode, volume };
+    // Hysteresis: cross ENTER to start speaking; must stay below EXIT for
+    // SILENCE_HOLD_FRAMES to stop. Keeps brief pauses from chopping animation.
+    if (AudioEngine._speaking) {
+      if (volume < AudioEngine._EXIT_VOL) {
+        if (++AudioEngine._silenceFrames >= AudioEngine._SILENCE_HOLD_FRAMES) AudioEngine._speaking = false;
+      } else {
+        AudioEngine._silenceFrames = 0;
+      }
+    } else if (volume >= AudioEngine._ENTER_VOL) {
+      AudioEngine._speaking = true;
+      AudioEngine._silenceFrames = 0;
+    }
+
+    const state = { mode, volume, speaking: AudioEngine._speaking };
 
     // Classify visemes whenever EITHER the canvas token OR the talking head needs them.
     // Previously this was gated on canvas mode only, which broke head visemes when
@@ -76,7 +97,7 @@ export class AudioEngine {
     const tokenWantsVisemes = mode     === "advanced" || mode     === "hybrid" || mode     === "both";
     const headWantsVisemes  = headMode === "advanced" || headMode === "hybrid" || headMode === "both";
     if (tokenWantsVisemes || headWantsVisemes) {
-      const classified = volume < 0.01 ? "closed" : AudioEngine._classifyViseme(buffer);
+      const classified = !AudioEngine._speaking ? "closed" : AudioEngine._classifyViseme(buffer);
       if (AudioEngine._visemeHold > 0) {
         AudioEngine._visemeHold--;
       } else if (classified !== AudioEngine._visemeLatch) {
@@ -141,5 +162,7 @@ export class AudioEngine {
     AudioEngine._analyser = null;
     AudioEngine._buffer = null;
     AudioEngine._tdBuffer = null;
+    AudioEngine._speaking = false;
+    AudioEngine._silenceFrames = 0;
   }
 }
