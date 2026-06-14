@@ -64,14 +64,15 @@ function registerSettings() {
 
   // ── Talking Heads ──────────────────────────────────────────────
 
+  // Visibility mode for talking heads ("always" | "speaking"). Managed inside the
+  // Talking Heads Config as an "Always visible" boolean. Heads are disabled
+  // entirely via headMode = "none".
   game.settings.register("token-speaker", "talkingHeads", {
-    name: "Talking Heads",
-    hint: "Show floating character portraits on screen. GM can drag them to arrange; positions are saved per scene. Requires reload to take effect.",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
-    default: "off",
-    choices: { off: "Off", always: "Always Visible", speaking: "Visible While Speaking" },
+    default: "speaking",
+    onChange: () => TalkingHeads.rebuild(),
   });
 
   game.settings.registerMenu("token-speaker", "talkingHeadsConfig", {
@@ -82,6 +83,12 @@ function registerSettings() {
     type: TalkingHeadsConfig,
     restricted: true,
   });
+
+  // ── Hidden — debug toggle + bounce presets (managed by config submenus) ─
+
+  game.settings.register("token-speaker", "debugMode",       { scope: "world", config: false, type: Boolean, default: false });
+  game.settings.register("token-speaker", "bouncePreset",     { scope: "world", config: false, type: String, default: "bouncy" });
+  game.settings.register("token-speaker", "headBouncePreset", { scope: "world", config: false, type: String, default: "bouncy" });
 
   // ── Hidden — managed by Token Animation Config submenu (GM only) ─
 
@@ -98,11 +105,28 @@ function registerSettings() {
   // ── Hidden — managed by Talking Heads Config submenu (world = GM-controlled for all) ──
 
   game.settings.register("token-speaker", "headIndicatorStyle", { scope: "world", config: false, type: String, default: "ring" });
-  game.settings.register("token-speaker", "headWidth",        { scope: "world",  config: false, type: Number, default: 80,      onChange: () => TalkingHeads.rebuild() });
+  game.settings.register("token-speaker", "headWidth",        { scope: "world",  config: false, type: Number, default: 100,      onChange: () => TalkingHeads.rebuild() });
   game.settings.register("token-speaker", "headAspectRatio",  { scope: "world",  config: false, type: Boolean, default: false,  onChange: () => TalkingHeads.rebuild() });
   game.settings.register("token-speaker", "showHeadName",     { scope: "world",  config: false, type: Boolean, default: true,   onChange: () => TalkingHeads.rebuild() });
+  game.settings.register("token-speaker", "headNameSize",     { scope: "world",  config: false, type: Number, default: 1.0,    onChange: () => TalkingHeads.rebuild() });
   game.settings.register("token-speaker", "headMode",        { scope: "world",  config: false, type: String, default: "simple", onChange: () => TalkingHeads.rebuild() });
   game.settings.register("token-speaker", "headMask",        { scope: "world",  config: false, type: String, default: "",       onChange: () => TalkingHeads.rebuild() });
+  // Avatar mode: show a separate "{tokenBase}-avatar.ext" image (full-body/portrait),
+  // static aspect ratio, no visemes. Decoupled from headMode (forced simple bounce).
+  game.settings.register("token-speaker", "headUseAvatar",   { scope: "world",  config: false, type: Boolean, default: false,  onChange: () => TalkingHeads.rebuild() });
+  game.settings.register("token-speaker", "headAvatarWidth",  { scope: "world",  config: false, type: Number, default: 240,    onChange: () => TalkingHeads.rebuild() });
+  // Cartoon silhouette outline (Talking Heads only). Follows the alpha from the mask,
+  // or — with Cutout on — the portrait PNG's own transparency.
+  game.settings.register("token-speaker", "headOutline",      { scope: "world",  config: false, type: Boolean, default: false,  onChange: () => TalkingHeads.rebuild() });
+  game.settings.register("token-speaker", "headOutlineWidth", { scope: "world",  config: false, type: Number,  default: 3,      onChange: () => TalkingHeads.rebuild() });
+  game.settings.register("token-speaker", "headOutlineAuto",  { scope: "world",  config: false, type: Boolean, default: true,   onChange: () => TalkingHeads.rebuild() }); // true = each player's colour
+  game.settings.register("token-speaker", "headOutlineColor", { scope: "world",  config: false, type: String,  default: "#ffffff", onChange: () => TalkingHeads.rebuild() });
+  game.settings.register("token-speaker", "headCutout",       { scope: "world",  config: false, type: Boolean, default: false,  onChange: () => TalkingHeads.rebuild() });
+  // Avatar mode has its own outline config (silhouette = avatar PNG alpha, so no Cutout toggle).
+  game.settings.register("token-speaker", "headAvatarOutline",      { scope: "world", config: false, type: Boolean, default: false,    onChange: () => TalkingHeads.rebuild() });
+  game.settings.register("token-speaker", "headAvatarOutlineWidth", { scope: "world", config: false, type: Number,  default: 3,        onChange: () => TalkingHeads.rebuild() });
+  game.settings.register("token-speaker", "headAvatarOutlineAuto",  { scope: "world", config: false, type: Boolean, default: true,     onChange: () => TalkingHeads.rebuild() });
+  game.settings.register("token-speaker", "headAvatarOutlineColor", { scope: "world", config: false, type: String,  default: "#ffffff", onChange: () => TalkingHeads.rebuild() });
   game.settings.register("token-speaker", "headBounceMax",    { scope: "world",  config: false, type: Number, default: 10   });
   game.settings.register("token-speaker", "headAngleMax",     { scope: "world",  config: false, type: Number, default: 5    });
   game.settings.register("token-speaker", "headScaleAxis",    { scope: "world",  config: false, type: String, default: "xy" });

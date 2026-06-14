@@ -16,6 +16,7 @@ export class CanvasAnimator {
   static _enabled        = true;
   static _running        = false;     // ticker is attached only while something animates
   static _cfg            = null;      // settings snapshot, refreshed on wake / mode change
+  static _waveSmooth     = 0;         // EMA of the mic waveform peak — smooths scale (shared, local mic)
 
   static init() {
     // Ticker is attached on demand by _wake() — nothing animates at rest.
@@ -25,6 +26,7 @@ export class CanvasAnimator {
   // mode changes; values don't change mid-utterance in practice.
   static _refreshCfg() {
     const get = k => game.settings.get("token-speaker", k);
+    const scaleDamping = get("scaleDamping");
     CanvasAnimator._cfg = {
       bounceMax:      get("bounceMax"),
       angleMax:       get("angleMax"),
@@ -32,7 +34,9 @@ export class CanvasAnimator {
       scaleLow:       get("scaleLow"),
       scaleHigh:      get("scaleHigh"),
       intensity:      get("intensity"),
-      scaleDamping:   get("scaleDamping"),
+      // Convert damping (0..1, higher = smoother) to a time constant so the lerp is
+      // framerate-independent. tau chosen so 60 fps reproduces the old residual.
+      scaleTau:       scaleDamping <= 0 ? 0 : -(1000 / 60) / Math.log(Math.min(scaleDamping, 0.999)),
       indicatorStyle: get("indicatorStyle"),
     };
   }
@@ -40,6 +44,7 @@ export class CanvasAnimator {
   static _wake() {
     if (CanvasAnimator._running) return;
     CanvasAnimator._refreshCfg();
+    CanvasAnimator._waveSmooth = 0;
     PIXI.Ticker.shared.add(CanvasAnimator._tick, CanvasAnimator);
     CanvasAnimator._running = true;
   }
@@ -334,10 +339,12 @@ export class CanvasAnimator {
 
     if (!CanvasAnimator._cfg) CanvasAnimator._refreshCfg();
     const { bounceMax, angleMax, scaleAxis, scaleLow, scaleHigh,
-            intensity, scaleDamping, indicatorStyle } = CanvasAnimator._cfg;
-    const lerpScale      = 1.0 - scaleDamping;
+            intensity, scaleTau, indicatorStyle } = CanvasAnimator._cfg;
     const now            = Date.now();
     const delta          = PIXI.Ticker.shared.deltaMS;
+    // Framerate-independent smoothing factor for scale (damping → tau → alpha)
+    const scaleAlpha     = scaleTau <= 0 ? 1 : 1 - Math.exp(-delta / scaleTau);
+    let   waveFrame      = false;   // smooth the shared waveform at most once per frame
 
     for (const [tokenId, target] of CanvasAnimator._targets) {
       const token = canvas.tokens.placeables.find(t => t.id === tokenId);
@@ -395,15 +402,20 @@ export class CanvasAnimator {
 
       // Bounce/stretch — only while speaking; otherwise ease back to the rest pose.
       if (doBounce && speaking) {
-        const rawSample = AudioEngine.getWaveformSample();
-        const s0 = Math.max(-1, Math.min(1, rawSample * intensity));
+        // EMA the raw waveform peak once per frame — this is the scale jitter source
+        if (!waveFrame) {
+          const raw = AudioEngine.getWaveformSample();
+          CanvasAnimator._waveSmooth += (raw - CanvasAnimator._waveSmooth) * scaleAlpha;
+          waveFrame = true;
+        }
+        const s0 = Math.max(-1, Math.min(1, CanvasAnimator._waveSmooth * intensity));
         const sf = s0 >= 0
           ? 1.0 + s0 * (scaleHigh - 1.0)
           : 1.0 + s0 * (1.0 - scaleLow);
         const tSX = scaleAxis !== "y" ? s.baseScaleX * sf : s.baseScaleX;
         const tSY = scaleAxis !== "x" ? s.baseScaleY * sf : s.baseScaleY;
-        s.scaleX += (tSX - s.scaleX) * lerpScale;
-        s.scaleY += (tSY - s.scaleY) * lerpScale;
+        s.scaleX += (tSX - s.scaleX) * scaleAlpha;
+        s.scaleY += (tSY - s.scaleY) * scaleAlpha;
         const tOY  = -bounceMax * effectiveVol;
         const tAng = (angleMax > 0 && effectiveVol > 0.02)
           ? Math.sin(now * 0.01) * effectiveVol * angleMax

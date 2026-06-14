@@ -18,6 +18,8 @@ export class TalkingHeads {
   static _lerped          = new Map(); // userId → { scaleX, scaleY, offsetYPct, angle }
   static _rafId           = null;
   static _enabled         = true;
+  static _waveSmooth      = 0;      // EMA of mic waveform peak — smooths head scale
+  static _lastTime        = 0;      // prev rAF timestamp, for framerate-independent lerp
 
   // ── Lifecycle ────────────────────────────────────────────────────
 
@@ -47,6 +49,8 @@ export class TalkingHeads {
 
   static _ensureRunning() {
     if (TalkingHeads._rafId === null) {
+      TalkingHeads._waveSmooth = 0;
+      TalkingHeads._lastTime   = 0;
       TalkingHeads._rafId = requestAnimationFrame(TalkingHeads._tick);
     }
   }
@@ -84,7 +88,10 @@ export class TalkingHeads {
 
     const mode = game.settings.get("token-speaker", "talkingHeads");
     container.className = `ts-mode-${mode}`;
-    if (mode === "off") return;
+    // headMode "none" = talking heads disabled entirely — but Avatar mode is
+    // decoupled from headMode, so it still builds.
+    const useAvatar = game.settings.get("token-speaker", "headUseAvatar");
+    if (!useAvatar && game.settings.get("token-speaker", "headMode") === "none") return;
 
     const speakers = TalkingHeads._collectSpeakers();
     const saved    = canvas.scene?.getFlag("token-speaker", "headPositions") ?? {};
@@ -153,16 +160,62 @@ export class TalkingHeads {
 
   // ── DOM creation ─────────────────────────────────────────────────
 
+  // SVG feMorphology outline: dilate the alpha, flood it with `color`, then
+  // paint the original portrait back on top → crisp uniform silhouette outline.
+  static _outlineSVG(id, width, color) {
+    return `<svg class="ts-head-filter" width="0" height="0" aria-hidden="true">`
+      + `<filter id="${id}" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">`
+      + `<feMorphology in="SourceAlpha" operator="dilate" radius="${width}" result="d"/>`
+      + `<feFlood flood-color="${color}" result="c"/>`
+      + `<feComposite in="c" in2="d" operator="in" result="o"/>`
+      + `<feMerge><feMergeNode in="o"/><feMergeNode in="SourceGraphic"/></feMerge>`
+      + `</filter></svg>`;
+  }
+
+  // "{dir}/{base}.ext" → "{dir}/{base}-avatar.ext" (sibling avatar image).
+  static _avatarPath(src) {
+    const q     = src.indexOf("?");
+    const clean = q >= 0 ? src.slice(0, q) : src;
+    const slash = clean.lastIndexOf("/");
+    const dot   = clean.lastIndexOf(".");
+    return dot > slash
+      ? `${clean.slice(0, dot)}-avatar${clean.slice(dot)}`
+      : `${clean}-avatar`;
+  }
+
   static _createHead(info) {
-    const width     = game.settings.get("token-speaker", "headWidth");
-    const ratio     = game.settings.get("token-speaker", "headAspectRatio");
+    const useAvatar = game.settings.get("token-speaker", "headUseAvatar");
+    const width     = game.settings.get("token-speaker", useAvatar ? "headAvatarWidth" : "headWidth");
+    // Avatar always keeps natural aspect; mask is ignored (silhouette comes from
+    // the avatar PNG's own alpha when Cutout is on).
+    const ratio     = useAvatar ? true : game.settings.get("token-speaker", "headAspectRatio");
     const showName  = game.settings.get("token-speaker", "showHeadName");
-    const headMask  = game.settings.get("token-speaker", "headMask");
+    const nameSize  = game.settings.get("token-speaker", "headNameSize");
+    const headMask  = useAvatar ? "" : game.settings.get("token-speaker", "headMask");
+    const cutout    = game.settings.get("token-speaker", "headCutout");
+    // Avatar and portrait/fallback have independent outline configs.
+    const gs = k => game.settings.get("token-speaker", k);
+    const outlineOn    = useAvatar ? gs("headAvatarOutline")      : gs("headOutline");
+    const outlineWidth = useAvatar ? gs("headAvatarOutlineWidth") : gs("headOutlineWidth");
+    const outlineAuto  = useAvatar ? gs("headAvatarOutlineAuto")  : gs("headOutlineAuto");
+    const outlineColor = useAvatar ? gs("headAvatarOutlineColor") : gs("headOutlineColor");
+    // Silhouette mode: outline + alpha-shaped ring need a real alpha source —
+    // the mask, (Cutout) the portrait's transparency, or (Avatar) the avatar PNG's.
+    const silhouette = outlineOn && (useAvatar || !!headMask || cutout);
 
     const head = document.createElement("div");
-    head.className = "ts-head";
+    head.className = "ts-head" + (silhouette ? " ts-head--silhouette" : "");
     head.dataset.userId = info.userId;
     head.style.width = `${width}px`;
+
+    // Player colour (also the default outline/ring colour)
+    const user = game.users.get(info.userId);
+    const hex  = user?.color?.css ?? "#ff6400";
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    head.style.setProperty("--ts-player-color", hex);
+    head.style.setProperty("--ts-player-color-glow", `rgba(${r}, ${g}, ${b}, 0.65)`);
 
     const frame = document.createElement("div");
     frame.className = "ts-head-frame" + (ratio ? " ts-head-frame--ratio" : "");
@@ -189,8 +242,17 @@ export class TalkingHeads {
 
     const img = document.createElement("img");
     img.className = "ts-head-img";
-    img.src = info.img;
-    img.dataset.originalSrc = info.img;
+    const baseSrc = useAvatar ? TalkingHeads._avatarPath(info.img) : info.img;
+    if (useAvatar) {
+      // Fall back to the original token/portrait art if no "-avatar" file exists.
+      img.addEventListener("error", function onErr() {
+        img.removeEventListener("error", onErr);
+        img.src = info.img;
+        img.dataset.originalSrc = info.img;
+      });
+    }
+    img.src = baseSrc;
+    img.dataset.originalSrc = baseSrc;
     img.alt = info.name.replace(/"/g, "&quot;");
     img.draggable = false;
 
@@ -205,25 +267,44 @@ export class TalkingHeads {
     bubble.appendChild(dotsEl);
     head.appendChild(bubble);
 
-    head.appendChild(frame);
+    if (silhouette) {
+      if (!headMask) {
+        // Cutout: silhouette comes from the PNG's own alpha — don't clip it to the
+        // circular frame, and fit (not crop) so the whole shape stays outlined.
+        frame.style.borderRadius = "0";
+        frame.style.overflow     = "visible";
+        img.style.objectFit      = "contain";
+      }
+      // Two wrappers above the masked frame so the outline isn't clipped by the
+      // mask (filter runs before mask on the same element): glow > outline > frame.
+      const glow    = document.createElement("div");
+      glow.className = "ts-head-glow";
+      const outline = document.createElement("div");
+      outline.className = "ts-head-outline";
+
+      const width2  = outlineWidth;
+      const color   = outlineAuto ? hex : outlineColor;
+      const filterId = `ts-outline-${info.userId}`;
+      outline.insertAdjacentHTML("afterbegin", TalkingHeads._outlineSVG(filterId, width2, color));
+      outline.style.filter = `url(#${filterId})`;
+
+      outline.appendChild(frame);
+      glow.appendChild(outline);
+      head.appendChild(glow);
+    } else {
+      head.appendChild(frame);
+    }
 
     if (showName) {
       const nameEl = document.createElement("div");
       nameEl.className = "ts-head-name";
       nameEl.style.maxWidth = `${width}px`;
-      // Scale font proportionally with head width (baseline: 0.72em at 80px)
-      nameEl.style.fontSize = `${Math.max(0.55, (width / 80) * 0.72).toFixed(2)}em`;
+      // Scale font proportionally with head width (baseline: 0.72em at 80px), then
+      // apply the GM Name Size multiplier.
+      nameEl.style.fontSize = `${(Math.max(0.55, (width / 100) * 0.72) * (nameSize || 1)).toFixed(2)}em`;
       nameEl.textContent = info.name;
       head.appendChild(nameEl);
     }
-
-    const user = game.users.get(info.userId);
-    const hex  = user?.color?.css ?? "#ff6400";
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    head.style.setProperty("--ts-player-color", hex);
-    head.style.setProperty("--ts-player-color-glow", `rgba(${r}, ${g}, ${b}, 0.65)`);
 
     if (game.user.isGM) {
       head.dataset.draggable = "true";
@@ -233,8 +314,9 @@ export class TalkingHeads {
     head.addEventListener("dragstart", e => e.preventDefault());
 
     // Only discover viseme assets when the head mode actually swaps images.
+    // Avatar mode is static-image + bounce only — never visemes.
     const headMode = game.settings.get("token-speaker", "headMode");
-    if (headMode === "advanced" || headMode === "both" || headMode === "hybrid") {
+    if (!useAvatar && (headMode === "advanced" || headMode === "both" || headMode === "hybrid")) {
       TalkingHeads._discoverHeadImages(info.userId, info.img);
     }
 
@@ -243,20 +325,27 @@ export class TalkingHeads {
 
   // ── Animation tick (rAF) ─────────────────────────────────────────
 
-  static _tick() {
+  static _tick(ts) {
     const get = k => game.settings.get("token-speaker", k);
     // All animation params are world-scoped → same values for every client
     const headMode     = get("headMode");
+    const useAvatar    = get("headUseAvatar");
     const bounceMax    = get("headBounceMax");    // % of frame height
     const angleMax     = get("headAngleMax");
     const scaleAxis    = get("headScaleAxis");
-    const scaleLow     = get("headScaleLow");
     const scaleHigh    = get("headScaleHigh");
     const intensity    = get("headIntensity");
     const scaleDamping = get("headScaleDamping");
-    const lerpScale    = 1.0 - scaleDamping;
     const mirrorMap    = get("headMirrorMap");
     const now          = Date.now();
+
+    // Framerate-independent scale smoothing: damping → tau → alpha
+    const t            = ts ?? performance.now();
+    const delta        = TalkingHeads._lastTime ? (t - TalkingHeads._lastTime) : (1000 / 60);
+    TalkingHeads._lastTime = t;
+    const scaleTau     = scaleDamping <= 0 ? 0 : -(1000 / 60) / Math.log(Math.min(scaleDamping, 0.999));
+    const scaleAlpha   = scaleTau <= 0 ? 1 : 1 - Math.exp(-delta / scaleTau);
+    let   waveFrame    = false;
 
     for (const [userId, target] of TalkingHeads._targets) {
       const head = TalkingHeads._heads.get(userId);
@@ -279,9 +368,12 @@ export class TalkingHeads {
       const speakerSendsVis  = target.viseme !== undefined;
       const mirrored         = mirrorMap[userId] === true;
 
-      // Use world headMode (GM-controlled) — ignore per-client target.mode for visual decisions
+      // Use world headMode (GM-controlled) — ignore per-client target.mode for visual decisions.
+      // Avatar mode = simple bounce regardless of headMode (no visemes).
       let doBounce;
-      if (headMode === "none") {
+      if (useAvatar) {
+        doBounce = true;
+      } else if (headMode === "none") {
         doBounce = false;
       } else if (headMode === "simple") {
         doBounce = true;
@@ -293,17 +385,21 @@ export class TalkingHeads {
         doBounce = true;
       }
 
-      // Bounce/stretch only while speaking; otherwise ease back to the rest pose.
-      if (doBounce && speaking) {
-        const rawSample = AudioEngine.getWaveformSample();
-        const s0 = Math.max(-1, Math.min(1, rawSample * intensity));
-        const sf = s0 >= 0
-          ? 1.0 + s0 * (scaleHigh - 1.0)
-          : 1.0 + s0 * (1.0 - scaleLow);
+      // Bounce/stretch only while actively voiced. Gate on real gated volume,
+      // not just the `speaking` hold flag — otherwise ambient noise during the
+      // silence-hold window (and the ungated waveform scale) jitters the head.
+      const voiced = effectiveVol > 0.06;
+
+      if (doBounce && speaking && voiced) {
+        // Scale amplitude tracks the sensitivity-gated volume envelope (× intensity)
+        // so the Sensitivity slider and Intensity both control how easily you reach
+        // peak stretch — no screaming, no dependence on raw mic input gain.
+        const s0 = Math.min(1, effectiveVol);
+        const sf = 1.0 + s0 * (scaleHigh - 1.0);
         const tSX = scaleAxis !== "y" ? sf : 1.0;
         const tSY = scaleAxis !== "x" ? sf : 1.0;
-        s.scaleX += (tSX - s.scaleX) * lerpScale;
-        s.scaleY += (tSY - s.scaleY) * lerpScale;
+        s.scaleX += (tSX - s.scaleX) * scaleAlpha;
+        s.scaleY += (tSY - s.scaleY) * scaleAlpha;
 
         const tOY  = bounceMax * effectiveVol;
         const tAng = (angleMax > 0 && effectiveVol > 0.02)

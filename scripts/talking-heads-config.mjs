@@ -1,3 +1,5 @@
+import { HEAD_BOUNCE_PRESETS, BOUNCE_PRESET_OPTIONS } from "./animation-presets.mjs";
+
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
 export class TalkingHeadsConfig extends HandlebarsApplicationMixin(ApplicationV2) {
@@ -33,11 +35,21 @@ export class TalkingHeadsConfig extends HandlebarsApplicationMixin(ApplicationV2
     }
 
     const headIndicator = get("headIndicatorStyle");
+    const preset        = get("headBouncePreset");
+    const useAvatar     = get("headUseAvatar");
 
     return {
+      debug: get("debugMode"),
+      useAvatar,
+      // Avatar bounces too, so show the bounce config regardless of headMode.
+      showBounce: useAvatar || ["simple", "hybrid", "both"].includes(headMode),
+      headsAlways: get("talkingHeads") === "always",
+      presetOptions: BOUNCE_PRESET_OPTIONS.map(o => ({ ...o, selected: preset === o.value })),
       headWidth:      get("headWidth"),
+      headAvatarWidth: get("headAvatarWidth"),
       headAspectRatio: get("headAspectRatio"),
       showHeadName:   get("showHeadName"),
+      headNameSize:   get("headNameSize"),
       indicatorOptions: [
         { value: "none",   label: "None",              selected: headIndicator === "none"   },
         { value: "ring",   label: "Ring Only",          selected: headIndicator === "ring"   },
@@ -45,6 +57,15 @@ export class TalkingHeadsConfig extends HandlebarsApplicationMixin(ApplicationV2
         { value: "both",   label: "Ring + Bubble",      selected: headIndicator === "both"   },
       ],
       headMask: get("headMask"),
+      headOutline:      get("headOutline"),
+      headOutlineWidth: get("headOutlineWidth"),
+      headOutlineAuto:  get("headOutlineAuto"),
+      headOutlineColor: get("headOutlineColor"),
+      headCutout:       get("headCutout"),
+      headAvatarOutline:      get("headAvatarOutline"),
+      headAvatarOutlineWidth: get("headAvatarOutlineWidth"),
+      headAvatarOutlineAuto:  get("headAvatarOutlineAuto"),
+      headAvatarOutlineColor: get("headAvatarOutlineColor"),
       modeOptions: [
         { value: "none",     label: "None (Disabled)",           selected: headMode === "none"     },
         { value: "simple",   label: "Simple (Bounce)",           selected: headMode === "simple"   },
@@ -78,6 +99,43 @@ export class TalkingHeadsConfig extends HandlebarsApplicationMixin(ApplicationV2
         });
       }
     }
+    const debugBox = this.element.querySelector("input[name='debugMode']");
+    const form     = this.element.querySelector("form");
+    debugBox?.addEventListener("change", () => {
+      form.classList.toggle("ts-debug-on", debugBox.checked);
+    });
+    const modeSel = this.element.querySelector("select[name='headMode']");
+    modeSel?.addEventListener("change", () => {
+      form.classList.toggle("ts-bounce-on", ["simple", "hybrid", "both"].includes(modeSel.value));
+    });
+
+    // Avatar mode hides mode/mask/aspect controls (kept ones stay visible).
+    const avatarBox = this.element.querySelector("input[name='headUseAvatar']");
+    avatarBox?.addEventListener("change", () => {
+      form.classList.toggle("ts-avatar-on", avatarBox.checked);
+    });
+
+    // Outline sub-settings only show when the (matching) outline is enabled.
+    const outlineBox = this.element.querySelector("input[name='headOutline']");
+    outlineBox?.addEventListener("change", () => {
+      form.classList.toggle("ts-outline-on", outlineBox.checked);
+    });
+    const avatarOutlineBox = this.element.querySelector("input[name='headAvatarOutline']");
+    avatarOutlineBox?.addEventListener("change", () => {
+      form.classList.toggle("ts-avatar-outline-on", avatarOutlineBox.checked);
+    });
+
+    // Each colour picker is disabled while its "use player colour" toggle is on.
+    for (const [autoName, colorName] of [
+      ["headOutlineAuto",       "headOutlineColor"],
+      ["headAvatarOutlineAuto", "headAvatarOutlineColor"],
+    ]) {
+      const autoBox  = this.element.querySelector(`input[name='${autoName}']`);
+      const colorInp = this.element.querySelector(`input[name='${colorName}']`);
+      const sync = () => { if (colorInp) colorInp.disabled = autoBox?.checked ?? false; };
+      autoBox?.addEventListener("change", sync);
+      sync();
+    }
   }
 
   static _onClearMask(_event, target) {
@@ -106,19 +164,48 @@ export class TalkingHeadsConfig extends HandlebarsApplicationMixin(ApplicationV2
       mirrorMap[userId] = form.querySelector(`input[name="mirror-${userId}"]`)?.checked ?? false;
     }
 
+    const debug = form.querySelector("input[name='debugMode']")?.checked ?? false;
+
+    await set("debugMode",       debug);
+    await set("talkingHeads",    form.querySelector("input[name='headsAlways']")?.checked ? "always" : "speaking");
     await set("headIndicatorStyle", fd.headIndicatorStyle ?? "ring");
     await set("headWidth",       Number(fd.headWidth));
+    await set("headAvatarWidth", Number(fd.headAvatarWidth));
     await set("headAspectRatio", form.querySelector("input[name='headAspectRatio']")?.checked ?? false);
     await set("showHeadName",    form.querySelector("input[name='showHeadName']")?.checked ?? false);
+    await set("headNameSize",    Number(fd.headNameSize));
     await set("headMode",        fd.headMode);
+    await set("headUseAvatar",   form.querySelector("input[name='headUseAvatar']")?.checked ?? false);
     await set("headMask",        fd.headMask ?? "");
-    await set("headBounceMax",    Number(fd.bounceMax));
-    await set("headAngleMax",     Number(fd.angleMax));
-    await set("headIntensity",    Number(fd.intensity));
-    await set("headScaleAxis",    fd.scaleAxis);
-    await set("headScaleLow",     Number(fd.scaleLow));
-    await set("headScaleHigh",    Number(fd.scaleHigh));
-    await set("headScaleDamping", Number(fd.scaleDamping));
+    await set("headOutline",      form.querySelector("input[name='headOutline']")?.checked ?? false);
+    await set("headOutlineWidth", Number(fd.headOutlineWidth));
+    await set("headOutlineAuto",  form.querySelector("input[name='headOutlineAuto']")?.checked ?? false);
+    await set("headOutlineColor", fd.headOutlineColor ?? "#ffffff");
+    await set("headCutout",       form.querySelector("input[name='headCutout']")?.checked ?? false);
+    await set("headAvatarOutline",      form.querySelector("input[name='headAvatarOutline']")?.checked ?? false);
+    await set("headAvatarOutlineWidth", Number(fd.headAvatarOutlineWidth));
+    await set("headAvatarOutlineAuto",  form.querySelector("input[name='headAvatarOutlineAuto']")?.checked ?? false);
+    await set("headAvatarOutlineColor", fd.headAvatarOutlineColor ?? "#ffffff");
+    await set("headBouncePreset", fd.headBouncePreset);
+
+    if (debug) {
+      await set("headBounceMax",    Number(fd.bounceMax));
+      await set("headAngleMax",     Number(fd.angleMax));
+      await set("headIntensity",    Number(fd.intensity));
+      await set("headScaleAxis",    fd.scaleAxis);
+      await set("headScaleLow",     Number(fd.scaleLow));
+      await set("headScaleHigh",    Number(fd.scaleHigh));
+      await set("headScaleDamping", Number(fd.scaleDamping));
+    } else {
+      const p = HEAD_BOUNCE_PRESETS[fd.headBouncePreset] ?? HEAD_BOUNCE_PRESETS.bouncy;
+      await set("headBounceMax",    p.bounceMax);
+      await set("headAngleMax",     p.angleMax);
+      await set("headScaleAxis",    p.scaleAxis);
+      await set("headScaleLow",     p.scaleLow);
+      await set("headScaleHigh",    p.scaleHigh);
+      await set("headIntensity",    p.intensity);
+      await set("headScaleDamping", p.scaleDamping);
+    }
     await set("headMirrorMap",    mirrorMap);
     this.close();
   }

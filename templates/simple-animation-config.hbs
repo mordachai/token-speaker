@@ -1,4 +1,4 @@
-<form class="ts-simple-config standard-form" autocomplete="off">
+<form class="ts-simple-config standard-form {{#if debug}}ts-debug-on{{/if}} {{#if showBounce}}ts-bounce-on{{/if}}" autocomplete="off">
 
   <fieldset>
     <legend>Speaking Indicator</legend>
@@ -30,7 +30,33 @@
     </div>
   </fieldset>
 
+  <fieldset class="ts-bounce-config">
+    <legend>Bounce Config</legend>
+    <div class="form-group slim">
+      <label>Preset</label>
+      <div class="form-fields">
+        <select name="bouncePreset">
+          {{#each presetOptions}}
+          <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+          {{/each}}
+        </select>
+      </div>
+      <p class="hint">Choose a bounce style. Used when Debug mode is off. Tune preset values in scripts/animation-presets.mjs.</p>
+    </div>
+  </fieldset>
+
   <fieldset>
+    <legend>Debug</legend>
+    <div class="form-group slim">
+      <label>Debug Mode</label>
+      <div class="form-fields">
+        <input type="checkbox" name="debugMode" {{#if debug}}checked{{/if}}>
+      </div>
+      <p class="hint">Reveal all raw sliders to test freely. When on, slider values override the selected preset.</p>
+    </div>
+  </fieldset>
+
+  <fieldset class="ts-debug-only">
     <legend>Intensity</legend>
     <div class="form-group slim">
       <label>Intensity</label>
@@ -42,7 +68,7 @@
     </div>
   </fieldset>
 
-  <fieldset>
+  <fieldset class="ts-debug-only">
     <legend>Bounce</legend>
     <div class="form-group slim">
       <label>Max Y offset (px)</label>
@@ -54,7 +80,7 @@
     </div>
   </fieldset>
 
-  <fieldset>
+  <fieldset class="ts-debug-only">
     <legend>Wobble</legend>
     <div class="form-group slim">
       <label>Max rotation (°)</label>
@@ -66,7 +92,7 @@
     </div>
   </fieldset>
 
-  <fieldset>
+  <fieldset class="ts-debug-only">
     <legend>Scale</legend>
     <div class="form-group slim">
       <label>Axis</label>
