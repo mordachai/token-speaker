@@ -237,6 +237,16 @@ Hooks.on("controlToken", () => {
   });
 });
 
+// Selecting a viseme token: immediately discover its assets and hold the -closed
+// rest frame, instead of waiting for the next audio frame. CanvasAnimator keeps
+// the token in its active set so the tick re-asserts the closed frame each frame,
+// surviving Foundry's own post-selection mesh refresh.
+Hooks.on("controlToken", (token, controlled) => {
+  if (!controlled) return;
+  if (game.settings.get("token-speaker", "disableAnimations")) return;
+  CanvasAnimator.prepareToken(token);
+});
+
 Hooks.on("createCombat",  _applyCombatState);
 Hooks.on("deleteCombat",  _applyCombatState);
 Hooks.on("updateCombat",  _applyCombatState);

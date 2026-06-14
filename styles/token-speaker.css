@@ -263,7 +263,12 @@
    In silhouette mode the box ring on the frame is suppressed; the speaking
    indicator becomes an alpha-shaped glow on the glow wrapper instead. */
 .ts-head--silhouette .ts-head-frame,
-.ts-head--silhouette.ts-head--show-ring.ts-speaking .ts-head-frame {
+.ts-head--silhouette.ts-head--show-ring.ts-speaking .ts-head-frame,
+/* Avatar heads are transparent full-body art — the box-ring border wraps the
+   whole bounding box and reads as an unwanted outline. Suppress it; avatars use
+   the silhouette glow (when avatar outline is on) for the speaking indicator. */
+.ts-head--avatar .ts-head-frame,
+.ts-head--avatar.ts-head--show-ring.ts-speaking .ts-head-frame {
   border-color: transparent;
   box-shadow: none;
 }
@@ -441,12 +446,26 @@ form.ts-bounce-on .ts-bounce-config { display: block; }
 form .ts-outline-only { display: none; }
 form.ts-outline-on .ts-outline-only { display: flex; }
 
-/* Avatar mode hides mode/mask/aspect controls that don't apply */
-form.ts-avatar-on .ts-avatar-hide { display: none !important; }
-/* Avatar-only controls: shown only in avatar mode */
-form .ts-avatar-only { display: none; }
-form.ts-avatar-on .ts-avatar-only { display: block; }
-form.ts-avatar-on .form-group.ts-avatar-only { display: flex; }
 /* Avatar outline sub-settings: shown only when the avatar outline is enabled */
 form .ts-avatar-outline-only { display: none; }
-form.ts-avatar-on.ts-avatar-outline-on .ts-avatar-outline-only { display: flex; }
+form.ts-avatar-outline-on .ts-avatar-outline-only { display: flex; }
+
+/* Outline configs side by side and decoupled — both always apply per head:
+   portrait/viseme outline is always active (viseme & token heads always exist);
+   the avatar outline is only relevant when Prefer Avatar Image is on, so it is
+   dimmed/disabled while that toggle is off. */
+.ts-outline-columns {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+.ts-outline-columns > .ts-outline-col {
+  flex: 1 1 0;
+  min-width: 0;
+}
+form:not(.ts-avatar-on) .ts-outline-col--avatar {
+  opacity: 0.4;
+}
+form:not(.ts-avatar-on) .ts-outline-col--avatar :is(input, select, button) {
+  pointer-events: none;
+}

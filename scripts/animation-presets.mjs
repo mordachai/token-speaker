@@ -27,17 +27,17 @@ export const TOKEN_BOUNCE_PRESETS = {
 
 export const HEAD_BOUNCE_PRESETS = {
   // Pulse — gentle heartbeat. Pure scale pulse, no bounce/rotation, very smooth.
-  pulse:      { bounceMax: 0,  angleMax: 0,  scaleAxis: "xy", scaleLow: 1.0,  scaleHigh: 1.2, intensity: 3.0, scaleDamping: 0.92 },
+  pulse:      { bounceMax: 2,  angleMax: 0,  scaleAxis: "xy", scaleLow: 1.0,  scaleHigh: 1.1, intensity: 2.0, scaleDamping: 0.92 },
   // Bouncy — happy, light wobble, still smooth.
-  bouncy:     { bounceMax: 20, angleMax: 4,  scaleAxis: "xy", scaleLow: 1.0,  scaleHigh: 1.10, intensity: 3.0, scaleDamping: 0.88 },
+  bouncy:     { bounceMax: 8, angleMax: 2,  scaleAxis: "xy", scaleLow: 1.0,  scaleHigh: 1.10, intensity: 2.0, scaleDamping: 0.88 },
   // Wobbly — more rotation, less bounce.
-  wobbly:     { bounceMax: 6,  angleMax: 15, scaleAxis: "xy", scaleLow: 0.96, scaleHigh: 1.15, intensity: 3.0, scaleDamping: 0.85 },
+  wobbly:     { bounceMax: 3,  angleMax: 10, scaleAxis: "xy", scaleLow: 0.96, scaleHigh: 1.15, intensity: 3.0, scaleDamping: 0.85 },
   // Stretchy — elongates in Y.
-  stretchy:   { bounceMax: 8,  angleMax: 0,  scaleAxis: "y",  scaleLow: 1.0,  scaleHigh: 1.80, intensity: 2.5, scaleDamping: 0.85 },
+  stretchy:   { bounceMax: 5,  angleMax: 0,  scaleAxis: "y",  scaleLow: 1.0,  scaleHigh: 1.80, intensity: 2.5, scaleDamping: 0.85 },
   // Toon — bounce + rotation + stretch, smoothed.
-  toon:       { bounceMax: 15, angleMax: 12, scaleAxis: "y", scaleLow: 1.0, scaleHigh: 1.4, intensity: 3.4, scaleDamping: 0.88 },
+  toon:       { bounceMax: 5, angleMax: 12, scaleAxis: "y", scaleLow: 1.0, scaleHigh: 1.4, intensity: 3.4, scaleDamping: 0.88 },
   // Toon Wobble — like Toon but more rotation and a touch snappier.
-  toonWobble: { bounceMax: 20, angleMax: 15, scaleAxis: "y", scaleLow: 1.0, scaleHigh: 1.3, intensity: 5.0, scaleDamping: 0.85 },
+  toonWobble: { bounceMax: 10, angleMax: 15, scaleAxis: "y", scaleLow: 1.0, scaleHigh: 1.3, intensity: 5.0, scaleDamping: 0.85 },
 };
 
 export const BOUNCE_PRESET_OPTIONS = [

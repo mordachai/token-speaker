@@ -10,34 +10,34 @@
       <p class="hint">On: portraits stay on screen at all times. Off: a portrait only appears while that player is talking. To disable talking heads entirely, set Animation Mode to None.</p>
     </div>
     <div class="form-group slim">
-      <label>Use Avatar</label>
+      <label>Prefer Avatar Image</label>
       <div class="form-fields">
         <input type="checkbox" name="headUseAvatar" {{#if useAvatar}}checked{{/if}}>
       </div>
-      <p class="hint">Show a separate "{token}-avatar" image (full-body or portrait) instead of the token art. Aspect ratio is always preserved; Size sets the width. No visemes (bounce + indicator still work).</p>
+      <p class="hint">When a "{token}-avatar" image exists, show it (full-body/portrait) instead of the token art. Avatar is a solo image, so it can't lip-sync — it follows the Animation Mode below, clamped to None/Simple. Heads with no avatar keep using their visemes/token art.</p>
     </div>
-    <div class="form-group slim ts-avatar-hide">
-      <label>Size (px)</label>
+    <div class="form-group slim">
+      <label>Portrait Size (px)</label>
       <div class="form-fields">
         <input type="range" name="headWidth" min="100" max="340" step="4" value="{{headWidth}}">
         <span class="range-value">{{headWidth}}</span>
       </div>
-      <p class="hint">Portrait width in pixels. Height scales with the image when Keep Aspect Ratio is enabled.</p>
+      <p class="hint">Width for viseme/token heads. Height scales with the image when Keep Aspect Ratio is enabled.</p>
     </div>
-    <div class="form-group slim ts-avatar-only">
+    <div class="form-group slim">
       <label>Avatar Size (px)</label>
       <div class="form-fields">
         <input type="range" name="headAvatarWidth" min="100" max="600" step="10" value="{{headAvatarWidth}}">
         <span class="range-value">{{headAvatarWidth}}</span>
       </div>
-      <p class="hint">Avatar width in pixels. Height always scales with the image's aspect ratio.</p>
+      <p class="hint">Width for avatar heads. Height always scales with the image's aspect ratio.</p>
     </div>
-    <div class="form-group slim ts-avatar-hide">
+    <div class="form-group slim">
       <label>Keep Aspect Ratio</label>
       <div class="form-fields">
         <input type="checkbox" name="headAspectRatio" {{#if headAspectRatio}}checked{{/if}}>
       </div>
-      <p class="hint">Preserve the portrait's natural proportions. Disable for square avatars; enable for full-body or tall images.</p>
+      <p class="hint">Preserve natural proportions for viseme/token heads (avatars always keep aspect). Disable for square portraits; enable for tall images.</p>
     </div>
     <div class="form-group slim">
       <label>Show Name</label>
@@ -67,7 +67,7 @@
     </div>
   </fieldset>
 
-  <fieldset class="ts-avatar-hide">
+  <fieldset>
     <legend>Appearance</legend>
     <div class="form-group slim">
       <label>Portrait Mask</label>
@@ -84,14 +84,16 @@
     </div>
   </fieldset>
 
-  <fieldset class="ts-avatar-hide">
-    <legend>Outline (Cartoon)</legend>
+  <div class="ts-outline-columns">
+  <fieldset class="ts-outline-col ts-outline-col--portrait">
+    <legend>Portrait / Viseme Outline</legend>
+    <p class="hint">Applies to viseme &amp; token heads. Always active.</p>
     <div class="form-group slim">
-      <label>Enable Outline</label>
+      <label>Outline</label>
       <div class="form-fields">
         <input type="checkbox" name="headOutline" {{#if headOutline}}checked{{/if}}>
       </div>
-      <p class="hint">Draw a cartoon outline around the portrait silhouette. Needs alpha: a Portrait Mask, or Cutout enabled for transparent-PNG art. Plain rectangular images keep the normal ring.</p>
+      <p class="hint">Cartoon outline around the silhouette. Needs alpha: a Portrait Mask, or Cutout for transparent-PNG art. Plain rectangular images keep the normal ring.</p>
     </div>
     <div class="form-group slim ts-outline-only">
       <label>Cutout Portraits</label>
@@ -101,21 +103,21 @@
       <p class="hint">Treat portraits as transparent cutouts (no mask needed) so the outline and speaking ring follow the PNG's own alpha shape.</p>
     </div>
     <div class="form-group slim ts-outline-only">
-      <label>Outline Width (px)</label>
+      <label>Width (px)</label>
       <div class="form-fields">
         <input type="range" name="headOutlineWidth" min="1" max="10" step="1" value="{{headOutlineWidth}}">
         <span class="range-value">{{headOutlineWidth}}</span>
       </div>
     </div>
     <div class="form-group slim ts-outline-only">
-      <label>Use Player Colour</label>
+      <label>Player Colour</label>
       <div class="form-fields">
         <input type="checkbox" name="headOutlineAuto" {{#if headOutlineAuto}}checked{{/if}}>
       </div>
       <p class="hint">On: each portrait is outlined in that player's colour. Off: use the fixed colour below.</p>
     </div>
     <div class="form-group slim ts-outline-only">
-      <label>Outline Colour</label>
+      <label>Colour</label>
       <div class="form-fields">
         <input type="color" name="headOutlineColor" value="{{headOutlineColor}}">
       </div>
@@ -123,39 +125,41 @@
     </div>
   </fieldset>
 
-  <fieldset class="ts-avatar-only">
-    <legend>Avatar Outline (Cartoon)</legend>
+  <fieldset class="ts-outline-col ts-outline-col--avatar">
+    <legend>Avatar Outline</legend>
+    <p class="hint">Applies to avatar heads. Dimmed when Prefer Avatar Image is off.</p>
     <div class="form-group slim">
-      <label>Enable Outline</label>
+      <label>Outline</label>
       <div class="form-fields">
         <input type="checkbox" name="headAvatarOutline" {{#if headAvatarOutline}}checked{{/if}}>
       </div>
-      <p class="hint">Outline drawn along the avatar PNG's own alpha silhouette. Separate from the portrait outline above.</p>
+      <p class="hint">Outline along the avatar PNG's own alpha silhouette. Separate from the portrait outline.</p>
     </div>
     <div class="form-group slim ts-avatar-outline-only">
-      <label>Outline Width (px)</label>
+      <label>Width (px)</label>
       <div class="form-fields">
         <input type="range" name="headAvatarOutlineWidth" min="1" max="10" step="1" value="{{headAvatarOutlineWidth}}">
         <span class="range-value">{{headAvatarOutlineWidth}}</span>
       </div>
     </div>
     <div class="form-group slim ts-avatar-outline-only">
-      <label>Use Player Colour</label>
+      <label>Player Colour</label>
       <div class="form-fields">
         <input type="checkbox" name="headAvatarOutlineAuto" {{#if headAvatarOutlineAuto}}checked{{/if}}>
       </div>
       <p class="hint">On: each avatar is outlined in that player's colour. Off: use the fixed colour below.</p>
     </div>
     <div class="form-group slim ts-avatar-outline-only">
-      <label>Outline Colour</label>
+      <label>Colour</label>
       <div class="form-fields">
         <input type="color" name="headAvatarOutlineColor" value="{{headAvatarOutlineColor}}">
       </div>
       <p class="hint">Used only when "Use Player Colour" is off.</p>
     </div>
   </fieldset>
+  </div>
 
-  <fieldset class="ts-avatar-hide">
+  <fieldset>
     <legend>Animation Mode</legend>
     <div class="form-group slim">
       <label>Mode</label>
@@ -166,7 +170,7 @@
           {{/each}}
         </select>
       </div>
-      <p class="hint">None: no animation. Simple: bounce/wobble. Advanced: viseme lip-sync. Hybrid: visemes when found, bounce otherwise. Controls all heads for every player.</p>
+      <p class="hint">One mode for every head; each head is clamped to what its assets allow. <strong>Visemes</strong> (sheet / 4 imgs) can do all modes. <strong>Avatar</strong> (solo img) and <strong>token-only</strong> heads can only bounce — Simple/Hybrid/Both → bounce, Advanced → static, None → still. For a mixed world (some visemes, some avatars) use <strong>Hybrid</strong>: visemes lip-sync, everything else bounces.</p>
     </div>
   </fieldset>
 

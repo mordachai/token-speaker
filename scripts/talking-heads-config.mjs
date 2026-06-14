@@ -41,8 +41,9 @@ export class TalkingHeadsConfig extends HandlebarsApplicationMixin(ApplicationV2
     return {
       debug: get("debugMode"),
       useAvatar,
-      // Avatar bounces too, so show the bounce config regardless of headMode.
-      showBounce: useAvatar || ["simple", "hybrid", "both"].includes(headMode),
+      // Bounce config is relevant whenever the Motion mode produces a bounce.
+      // Avatar/plain heads bounce in exactly these modes too (capability-clamped).
+      showBounce: ["simple", "hybrid", "both"].includes(headMode),
       headsAlways: get("talkingHeads") === "always",
       presetOptions: BOUNCE_PRESET_OPTIONS.map(o => ({ ...o, selected: preset === o.value })),
       headWidth:      get("headWidth"),
@@ -125,14 +126,21 @@ export class TalkingHeadsConfig extends HandlebarsApplicationMixin(ApplicationV2
       form.classList.toggle("ts-avatar-outline-on", avatarOutlineBox.checked);
     });
 
-    // Each colour picker is disabled while its "use player colour" toggle is on.
+    // Each colour picker is hidden while its "use player colour" toggle is on
+    // (the fixed colour does nothing then). Toggle the whole form-group so it
+    // disappears; "" lets the ts-*-only CSS govern visibility when shown.
     for (const [autoName, colorName] of [
       ["headOutlineAuto",       "headOutlineColor"],
       ["headAvatarOutlineAuto", "headAvatarOutlineColor"],
     ]) {
       const autoBox  = this.element.querySelector(`input[name='${autoName}']`);
       const colorInp = this.element.querySelector(`input[name='${colorName}']`);
-      const sync = () => { if (colorInp) colorInp.disabled = autoBox?.checked ?? false; };
+      const group    = colorInp?.closest(".form-group");
+      const sync = () => {
+        const on = autoBox?.checked ?? false;
+        if (colorInp) colorInp.disabled = on;
+        if (group) group.style.display = on ? "none" : "";
+      };
       autoBox?.addEventListener("change", sync);
       sync();
     }

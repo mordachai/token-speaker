@@ -89,6 +89,63 @@ export class CanvasAnimator {
     }
 
     CanvasAnimator._texturePending.delete(tokenId);
+
+    // Show the dedicated -closed frame as the silent default the moment assets
+    // finish loading — a viseme token must never sit on its base art.
+    CanvasAnimator._applyRestFrame(tokenId);
+  }
+
+  // Apply the dedicated -closed texture as the static silent frame. No-op for
+  // tokens without a closed frame, or while actively speaking/animating.
+  static _applyRestFrame(tokenId) {
+    const token = canvas?.tokens?.placeables?.find(t => t.id === tokenId);
+    if (!token?.mesh) return;
+    const s = CanvasAnimator._lerped.get(tokenId);
+    if (s && !s.settled && CanvasAnimator._targets.has(tokenId)) return; // mid-animation
+    const closedTex = CanvasAnimator._tokenTextures.get(tokenId)?.closed;
+    if (!closedTex?.valid) return;
+    if (!CanvasAnimator._originalTextures.has(tokenId)) {
+      CanvasAnimator._originalTextures.set(tokenId, token.mesh.texture);
+    }
+    if (token.mesh.texture !== closedTex) token.mesh.texture = closedTex;
+  }
+
+  // Single entry for a SILENT token (selected, or just stopped speaking). Viseme
+  // tokens hold the dedicated -closed rest frame (kept in the active set so the
+  // tick re-asserts it across Foundry mesh refreshes); simple/none tokens only
+  // keep easing back if they were already animating, then detach. `state` is the
+  // current audio frame (optional — controlToken passes none).
+  static prepareToken(token, state) {
+    if (!token?.mesh) return;
+    const mode = game.settings.get("token-speaker", "mode");
+    const visemeMode = mode === "advanced" || mode === "both" || mode === "hybrid";
+
+    if (!visemeMode) {
+      // Simple/none: no held closed frame. Only feed the silent state if the token
+      // is still animating (easing back after speech) so it settles and detaches.
+      if (state && CanvasAnimator._targets.has(token.id)) {
+        CanvasAnimator._targets.set(token.id, state);
+        CanvasAnimator._wake();
+      }
+      return;
+    }
+
+    if (!CanvasAnimator._tokenTextures.has(token.id) && !CanvasAnimator._texturePending.has(token.id)) {
+      _ensureTokenTextures(token);            // discover viseme assets (async)
+    } else {
+      CanvasAnimator._applyRestFrame(token.id); // instant apply when already cached
+    }
+    // Hold a silent target so the tick keeps re-asserting the closed rest frame,
+    // surviving Foundry's post-selection mesh refreshes. Always silent + hold, so
+    // a stale speaking flag (transition out of speech) eases back then settles.
+    CanvasAnimator._targets.set(token.id, {
+      speaking: false,
+      volume:   state?.volume ?? 0,
+      viseme:   state?.viseme,
+      mode,
+      hold:     true,
+    });
+    CanvasAnimator._wake();
   }
 
   static async _discoverVisemes(imgPath) {
@@ -295,15 +352,18 @@ export class CanvasAnimator {
 
     CanvasAnimator._localTokenId = token.id;
 
-    // Silent and already settled (not animating) → do nothing, stay asleep.
-    if (!state.speaking && !CanvasAnimator._targets.has(token.id)) return token;
+    // Silent → route through prepareToken: viseme tokens hold the -closed rest
+    // frame, simple/none ease back if still animating. Never overwrite with a
+    // non-hold silent state here (that would wipe the hold and detach).
+    if (!state.speaking) {
+      CanvasAnimator.prepareToken(token, state);
+      return token;
+    }
 
     CanvasAnimator._targets.set(token.id, state);
-    if (state.speaking) {
-      const s = CanvasAnimator._lerped.get(token.id);
-      if (s) s.settled = false;
-      _ensureTokenTextures(token);
-    }
+    const s = CanvasAnimator._lerped.get(token.id);
+    if (s) s.settled = false;
+    _ensureTokenTextures(token);
     CanvasAnimator._wake();
     return token;
   }
@@ -314,14 +374,15 @@ export class CanvasAnimator {
     const token = canvas.tokens.placeables.find(t => t.id === tokenId);
     if (!token) return;
 
-    if (!state.speaking && !CanvasAnimator._targets.has(token.id)) return;
+    if (!state.speaking) {
+      CanvasAnimator.prepareToken(token, state);
+      return;
+    }
 
     CanvasAnimator._targets.set(token.id, state);
-    if (state.speaking) {
-      const s = CanvasAnimator._lerped.get(token.id);
-      if (s) s.settled = false;
-      _ensureTokenTextures(token);
-    }
+    const s = CanvasAnimator._lerped.get(token.id);
+    if (s) s.settled = false;
+    _ensureTokenTextures(token);
     CanvasAnimator._wake();
   }
 
@@ -384,6 +445,11 @@ export class CanvasAnimator {
       }
 
       const speaking = target.speaking === true;
+      // Held viseme tokens stay in the active set at rest only to re-assert the
+      // closed texture — they must NOT keep writing scale/position/angle, or they
+      // fight Foundry's own mirror/scale handling at idle. Only drive transforms
+      // while actually animating (speaking, or easing back to rest).
+      const animating = speaking || s.settled === false;
       const vol = target.volume;
       const effectiveVol = Math.min(vol * intensity, 1.0);
 
@@ -446,10 +512,12 @@ export class CanvasAnimator {
         _restoreTexture(tokenId, token, CanvasAnimator._originalTextures);
       }
 
-      token.mesh.scale.x    = s.scaleX;
-      token.mesh.scale.y    = s.scaleY;
-      token.mesh.position.y = s.baseY + s.offsetY;
-      token.mesh.angle      = s.angle;
+      if (animating) {
+        token.mesh.scale.x    = s.scaleX;
+        token.mesh.scale.y    = s.scaleY;
+        token.mesh.position.y = s.baseY + s.offsetY;
+        token.mesh.angle      = s.angle;
+      }
 
       // Keep mask sprite aligned to the (now-updated) mesh position
       const ms = CanvasAnimator._maskSprites.get(tokenId);
@@ -528,15 +596,23 @@ export class CanvasAnimator {
           && Math.abs(s.angle)   < 0.05
           && s.ringAlpha   < 0.01
           && s.bubbleAlpha < 0.01) {
-        s.scaleX = s.baseScaleX; s.scaleY = s.baseScaleY;
-        s.offsetY = 0; s.angle = 0; s.ringAlpha = 0; s.bubbleAlpha = 0;
-        token.mesh.scale.set(s.baseScaleX, s.baseScaleY);
-        token.mesh.position.y = s.baseY;
-        token.mesh.angle = 0;
-        if (ov?.ring)   ov.ring.alpha   = 0;
-        if (ov?.bubble) ov.bubble.alpha = 0;
+        // First time settling: snap our animation state + transforms exactly to
+        // rest, once. After this we stop writing transforms (see `animating`) so
+        // Foundry keeps full ownership of the resting scale/mirror.
+        if (!s.settled) {
+          s.scaleX = s.baseScaleX; s.scaleY = s.baseScaleY;
+          s.offsetY = 0; s.angle = 0; s.ringAlpha = 0; s.bubbleAlpha = 0;
+          token.mesh.scale.set(s.baseScaleX, s.baseScaleY);
+          token.mesh.position.y = s.baseY;
+          token.mesh.angle = 0;
+          if (ov?.ring)   ov.ring.alpha   = 0;
+          if (ov?.bubble) ov.bubble.alpha = 0;
+          s.settled = true;
+        }
 
         // Rest frame: dedicated closed image in viseme modes, else original art.
+        // Re-asserted every held frame so a Foundry mesh refresh can't strand the
+        // token on its base art (texture only — transforms are left to Foundry).
         const closedTex = CanvasAnimator._tokenTextures.get(tokenId)?.closed;
         if (doVisemes && closedTex?.valid) {
           if (!CanvasAnimator._originalTextures.has(tokenId)) {
@@ -546,9 +622,16 @@ export class CanvasAnimator {
         } else {
           _restoreTexture(tokenId, token, CanvasAnimator._originalTextures);
         }
-
-        s.settled = true;
-        CanvasAnimator._targets.delete(tokenId);
+        // Held viseme tokens (selected & silent) stay in the active set so the
+        // tick keeps re-asserting the closed frame each frame, surviving Foundry's
+        // mesh refreshes. Keep holding while assets are still discovering (first
+        // select) so it doesn't sleep before the closed frame exists. Detach only
+        // when not held, or when discovery finished with no closed frame to hold
+        // (then the token just settles to its base art and sleeps).
+        const stillLoading = CanvasAnimator._texturePending.has(tokenId);
+        if (!(target.hold && (stillLoading || (doVisemes && closedTex?.valid)))) {
+          CanvasAnimator._targets.delete(tokenId);
+        }
       }
     }
 

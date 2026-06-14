@@ -73,7 +73,7 @@ export class TalkingHeads {
 
   // ── Rebuild ───────────────────────────────────────────────────────
 
-  static rebuild() {
+  static async rebuild() {
     const container = TalkingHeads._container;
     if (!container) return;
 
@@ -96,6 +96,14 @@ export class TalkingHeads {
     const speakers = TalkingHeads._collectSpeakers();
     const saved    = canvas.scene?.getFlag("token-speaker", "headPositions") ?? {};
 
+    // Per-head avatar detection (once, at build): which heads have a "-avatar"
+    // sibling. Heads without one fall back to the portrait/viseme pipeline.
+    if (useAvatar) {
+      await Promise.all(speakers.map(async info => {
+        info.hasAvatar = await TalkingHeads._hasAvatarFile(info.img);
+      }));
+    }
+
     speakers.forEach((info, idx) => {
       const head = TalkingHeads._createHead(info);
       container.appendChild(head);
@@ -105,6 +113,31 @@ export class TalkingHeads {
       head.style.left = `${pos?.x ?? 10}px`;
       head.style.top  = `${pos?.y ?? (60 + idx * 110)}px`;
     });
+  }
+
+  // Does a "{base}-avatar" sibling exist for this image? GM lists the directory
+  // (no 404 noise); players HEAD-probe. Result drives per-head avatar vs fallback.
+  static async _hasAvatarFile(imgPath) {
+    const q         = imgPath.indexOf("?");
+    const clean     = q >= 0 ? imgPath.slice(0, q) : imgPath;
+    const lastSlash = clean.lastIndexOf("/");
+    const folder    = lastSlash >= 0 ? clean.slice(0, lastSlash) : "";
+    const filename  = lastSlash >= 0 ? clean.slice(lastSlash + 1) : clean;
+    const lastDot   = filename.lastIndexOf(".");
+    const base      = lastDot >= 0 ? filename.slice(0, lastDot) : filename;
+
+    try {
+      // GM: directory listing — matches "-avatar" regardless of extension/case.
+      const result = await foundry.applications.apps.FilePicker.implementation.browse("data", folder || "/");
+      const files = result.files ?? [];
+      const re = new RegExp(`^${_escRegex(base)}-avatar\\.[^.]+$`, "i");
+      return files.some(f => re.test(f.includes("/") ? f.slice(f.lastIndexOf("/") + 1) : f));
+    } catch { /* no FILES_BROWSE permission — HEAD probe the same-ext guess instead */ }
+
+    const avatarPath = TalkingHeads._avatarPath(imgPath);
+    const url = avatarPath.startsWith("/") || avatarPath.includes("://") ? avatarPath : `/${avatarPath}`;
+    try { return (await fetch(url, { method: "HEAD" })).ok; }
+    catch { return false; }
   }
 
   // ── Speaker list ─────────────────────────────────────────────────
@@ -184,7 +217,10 @@ export class TalkingHeads {
   }
 
   static _createHead(info) {
-    const useAvatar = game.settings.get("token-speaker", "headUseAvatar");
+    // Avatar is per-head: only when the global toggle is on AND this head actually
+    // has a "-avatar" sibling (probed in rebuild → info.hasAvatar). Heads without
+    // one fall through to the normal portrait/viseme pipeline (the fallback).
+    const useAvatar = game.settings.get("token-speaker", "headUseAvatar") && info.hasAvatar === true;
     const width     = game.settings.get("token-speaker", useAvatar ? "headAvatarWidth" : "headWidth");
     // Avatar always keeps natural aspect; mask is ignored (silhouette comes from
     // the avatar PNG's own alpha when Cutout is on).
@@ -204,7 +240,9 @@ export class TalkingHeads {
     const silhouette = outlineOn && (useAvatar || !!headMask || cutout);
 
     const head = document.createElement("div");
-    head.className = "ts-head" + (silhouette ? " ts-head--silhouette" : "");
+    head.className = "ts-head"
+      + (silhouette ? " ts-head--silhouette" : "")
+      + (useAvatar ? " ts-head--avatar" : "");
     head.dataset.userId = info.userId;
     head.style.width = `${width}px`;
 
@@ -329,7 +367,6 @@ export class TalkingHeads {
     const get = k => game.settings.get("token-speaker", k);
     // All animation params are world-scoped → same values for every client
     const headMode     = get("headMode");
-    const useAvatar    = get("headUseAvatar");
     const bounceMax    = get("headBounceMax");    // % of frame height
     const angleMax     = get("headAngleMax");
     const scaleAxis    = get("headScaleAxis");
@@ -368,19 +405,20 @@ export class TalkingHeads {
       const speakerSendsVis  = target.viseme !== undefined;
       const mirrored         = mirrorMap[userId] === true;
 
-      // Use world headMode (GM-controlled) — ignore per-client target.mode for visual decisions.
-      // Avatar mode = simple bounce regardless of headMode (no visemes).
+      // The asset caps the motion: only viseme heads can lip-sync. Avatar (solo
+      // image) and plain token heads have no viseme class → they degrade through
+      // the same branches below (simple/hybrid/both → bounce, advanced → static,
+      // none → still). So one Motion mode (headMode) drives every head; capability
+      // is clamped automatically by hasVisemes.
       let doBounce;
-      if (useAvatar) {
-        doBounce = true;
-      } else if (headMode === "none") {
+      if (headMode === "none") {
         doBounce = false;
       } else if (headMode === "simple") {
         doBounce = true;
       } else if (headMode === "advanced") {
-        doBounce = false;
+        doBounce = false;                              // lip-sync where capable, else static
       } else if (headMode === "hybrid") {
-        doBounce = !speakerSendsVis || !hasVisemes;
+        doBounce = !speakerSendsVis || !hasVisemes;    // bounce when no visemes to sync
       } else { // "both"
         doBounce = true;
       }
@@ -581,7 +619,14 @@ export class TalkingHeads {
     const head = TalkingHeads._heads.get(userId);
     // A lone closed frame is not enough for lip-sync — require a real mouth shape.
     const hasVisemes = images && (images.oo || images.ah || images.ee);
-    if (head && hasVisemes) head.classList.add("ts-head--has-visemes");
+    if (head && hasVisemes) {
+      head.classList.add("ts-head--has-visemes");
+      // Show the dedicated -closed frame as the silent default the moment assets
+      // load — a viseme head must NEVER sit on the raw token art. (Priority:
+      // closed > avatar > token; avatar heads skip discovery so keep their image.)
+      // Skip while mid-speech so we don't stomp the live viseme swap.
+      if (!head.classList.contains("ts-speaking")) TalkingHeads._setRestImage(head, userId);
+    }
   }
 
   // Crop a 2×2 flipbook sheet into four data-URL images using Canvas 2D.
